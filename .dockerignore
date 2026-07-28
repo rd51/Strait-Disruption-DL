@@ -1,0 +1,12 @@
+data/
+ports/
+docs/
+*.html
+*.md
+.git/
+.venv/
+venv/
+__pycache__/
+*.pyc
+*.key
+.env

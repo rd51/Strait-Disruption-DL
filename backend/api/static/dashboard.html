@@ -1,0 +1,599 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hormuz Disruption Engine</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+      integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
+<style>
+:root{
+  --bg:#0b0f14; --panel:#121821; --panel2:#0e141c; --line:#1e2833;
+  --ink:#e6edf3; --muted:#8b9aab; --dim:#5c6b7a;
+  --ok:#3fb950; --warn:#d29922; --bad:#f85149; --accent:#58a6ff;
+  --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);
+  font:15px/1.55 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+a{color:var(--accent)}
+header{padding:18px 26px 0;border-bottom:1px solid var(--line);
+  background:linear-gradient(180deg,#101720,#0b0f14)}
+h1{margin:0;font-size:19px;letter-spacing:.2px}
+.sub{color:var(--muted);font-size:12.5px;margin-top:3px}
+nav{display:flex;gap:2px;margin-top:14px;flex-wrap:wrap}
+nav button{background:transparent;border:none;border-bottom:2px solid transparent;
+  color:var(--muted);padding:9px 15px;font-size:13.5px;font-weight:600;cursor:pointer;
+  border-radius:6px 6px 0 0}
+nav button:hover{color:var(--ink);background:#141c26}
+nav button.on{color:var(--accent);border-bottom-color:var(--accent);background:#141c26}
+.wrap{padding:20px 26px 60px;max-width:1500px;margin:0 auto}
+.grid{display:grid;gap:16px;grid-template-columns:repeat(auto-fit,minmax(330px,1fr))}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px 18px}
+.card h2{margin:0 0 4px;font-size:13px;text-transform:uppercase;
+  letter-spacing:.08em;color:var(--muted);font-weight:600}
+.card .why{color:var(--dim);font-size:12px;margin:0 0 12px}
+.big{font-size:42px;font-weight:650;line-height:1.05;font-family:var(--mono)}
+.unit{font-size:15px;color:var(--muted);font-weight:400}
+.caveat{margin-top:12px;padding:10px 12px;border-radius:7px;font-size:12.5px;
+  background:#1a1206;border:1px solid #4a3410;color:#e0b155}
+.caveat b{color:#f0c674}
+.null{background:#1b0f10;border-color:#4d2126;color:#f0a0a0}
+.null b{color:#ff8a8a}
+.good{background:#0c1f13;border-color:#1c5c2e;color:#8fd6a0}
+.good b{color:#3fb950}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th,td{text-align:left;padding:7px 8px;border-bottom:1px solid var(--line);vertical-align:top}
+th{color:var(--muted);font-weight:600;font-size:11.5px;text-transform:uppercase;letter-spacing:.05em}
+td.num{text-align:right;font-family:var(--mono)}
+.pill{display:inline-block;padding:2px 8px;border-radius:999px;font-size:11px;
+  font-weight:600;letter-spacing:.03em;white-space:nowrap}
+.p-ok{background:#0d2e17;color:var(--ok);border:1px solid #1c5c2e}
+.p-warn{background:#2e2408;color:var(--warn);border:1px solid #5c4a12}
+.p-bad{background:#2e1114;color:var(--bad);border:1px solid #5c2226}
+.p-dim{background:#161d26;color:var(--dim);border:1px solid var(--line)}
+.fresh{display:flex;gap:10px;flex-wrap:wrap;margin:0 0 16px}
+.fr{flex:1 1 215px;background:var(--panel2);border:1px solid var(--line);
+  border-radius:8px;padding:10px 12px}
+.fr .n{font-size:11.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+.fr .v{font-family:var(--mono);font-size:16px;margin:3px 0 5px}
+.fr .frnote{font-size:10.5px;color:var(--dim);margin-top:7px;line-height:1.4}
+select,input,textarea,button.btn{font:inherit;color:var(--ink);background:var(--panel2);
+  border:1px solid var(--line);border-radius:7px;padding:9px 11px}
+textarea{width:100%;min-height:78px;resize:vertical;font-size:13.5px}
+button.btn{background:#1b2b3f;border-color:#2a4a6e;cursor:pointer;font-weight:600}
+button.btn:hover{background:#22384f}
+button.btn:disabled{opacity:.5;cursor:default}
+.score-row{display:flex;justify-content:space-between;gap:10px;align-items:center;
+  padding:7px 9px;border-bottom:1px solid var(--line);font-size:13px}
+.score-row .t{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.score-row .s{font-family:var(--mono);font-weight:600}
+.err{color:var(--bad);font-size:13px;padding:10px;background:#1b0f10;
+  border:1px solid #4d2126;border-radius:7px}
+.foot{color:var(--dim);font-size:12px;margin-top:26px;padding-top:14px;border-top:1px solid var(--line)}
+.rule{font-size:12px;color:var(--muted);padding:6px 0;border-bottom:1px solid var(--line)}
+.rule code{color:var(--accent);font-family:var(--mono);font-size:11.5px}
+.scroll{max-height:300px;overflow-y:auto}
+.span2{grid-column:span 2}
+.span3{grid-column:1/-1}
+@media(max-width:760px){.span2,.span3{grid-column:span 1}}
+svg.spark{display:block;width:100%;height:auto}
+.legend{font-size:11.5px;color:var(--dim);margin-top:6px;line-height:1.5}
+#leaf{height:460px;border-radius:8px;border:1px solid var(--line)}
+.leaflet-popup-content-wrapper,.leaflet-popup-tip{background:#121821;color:#e6edf3;
+  border:1px solid #1e2833}
+.leaflet-popup-content{font:13px/1.5 system-ui,sans-serif;margin:11px 13px}
+.leaflet-container{background:#0e141c}
+.alert{display:flex;gap:11px;align-items:flex-start;padding:11px 13px;
+  border-radius:8px;margin-bottom:9px;border:1px solid var(--line);background:var(--panel2)}
+.alert .ic{font-size:17px;line-height:1.2}
+.alert .tx{flex:1;font-size:13px}
+.alert .tx b{display:block;margin-bottom:2px}
+.a-bad{border-color:#4d2126;background:#1b0f10}
+.a-warn{border-color:#4a3410;background:#1a1206}
+.a-ok{border-color:#1c5c2e;background:#0c1f13}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:4px 14px;font-size:13px;margin-top:8px}
+.kv dt{color:var(--muted)}
+.kv dd{margin:0;font-family:var(--mono)}
+.arch{font-family:var(--mono);font-size:12px;color:var(--muted);background:var(--panel2);
+  border:1px solid var(--line);border-radius:7px;padding:12px;white-space:pre;overflow-x:auto;
+  line-height:1.6}
+.tab{display:none}
+.tab.on{display:block}
+.flow{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:12.5px;margin:10px 0}
+.flow .st{background:var(--panel2);border:1px solid var(--line);border-radius:7px;padding:8px 11px}
+.flow .ar{color:var(--dim)}
+</style>
+</head>
+<body>
+<header>
+  <h1>Hormuz Disruption Engine</h1>
+  <div class="sub">Chokepoint early-warning &middot; three deep-learning arms &middot; every number carries its caveat</div>
+  <nav>
+    <button class="on" data-tab="overview">Overview</button>
+    <button data-tab="alerts">Alerts</button>
+    <button data-tab="map">Map</button>
+    <button data-tab="sat">Satellite</button>
+    <button data-tab="models">Models &amp; DL</button>
+    <button data-tab="pipe">Data pipeline</button>
+    <button data-tab="sem">Semantics</button>
+  </nav>
+</header>
+
+<div class="wrap">
+  <div class="fresh" id="fresh"></div>
+
+  <div class="tab on" id="tab-overview">
+    <div class="grid">
+      <section class="card span2">
+        <h2>Chokepoint risk index</h2>
+        <p class="why">Weighted causal-percentile fusion. Not a trained model &mdash; five labels cannot validate a fitted combiner.</p>
+        <div id="risk-big" class="big">&mdash;</div>
+        <div id="risk-spark"></div>
+        <div id="risk-caveat"></div>
+      </section>
+      <section class="card span2">
+        <h2>Backtest &mdash; causal leave-one-event-out</h2>
+        <p class="why">One fold per event. "Unscoreable" = insufficient prior history to have been predictable at the time &mdash; not a miss.</p>
+        <div id="backtest"></div>
+      </section>
+      <section class="card span2">
+        <h2>Live inference &mdash; semantic scoring</h2>
+        <p class="why">Runs the multilingual encoder in the backend. Zero-shot: any language, including headlines never collected.</p>
+        <textarea id="txt" spellcheck="false">Iran announces closure of the Strait of Hormuz until further notice
+ايران تغلق مضيق هرمز أمام الملاحة
+Tanker struck by missile near Fujairah anchorage
+DP World reports steady quarterly container throughput</textarea>
+        <div style="margin-top:9px;display:flex;gap:9px;align-items:center">
+          <button class="btn" id="go">Score</button>
+          <span class="legend">one line per input</span>
+        </div>
+        <div id="inf" style="margin-top:12px"></div>
+      </section>
+      <section class="card"><h2>Arm B &mdash; market VAE</h2>
+        <p class="why">LSTM sequence VAE on non-event windows. Reconstruction error = regime anomaly.</p>
+        <div id="armb"></div></section>
+      <section class="card"><h2>Arm C &mdash; semantic text</h2>
+        <p class="why">Contrastive cosine scoring of GDELT URL slugs against reference sentences.</p>
+        <div id="armc"></div></section>
+      <section class="card"><h2>Arm A &mdash; SAR congestion</h2>
+        <p class="why">CA-CFAR over Sentinel-1, water-masked. Land detections excluded.</p>
+        <div id="arma"></div></section>
+      <section class="card"><h2>Vessel safety layer</h2>
+        <p class="why">Live per-vessel monitoring. Architecturally separate from the engine.</p>
+        <div id="vessel"></div></section>
+    </div>
+  </div>
+
+  <div class="tab" id="tab-alerts">
+    <div class="grid"><section class="card span3">
+      <h2>System alerts</h2>
+      <p class="why">Derived from measured state, not thresholds invented for a demo. Data-quality alerts rank alongside risk alerts &mdash; a stale arm invalidates the index built on it.</p>
+      <div id="alerts"></div>
+    </section></div>
+  </div>
+
+  <div class="tab" id="tab-map">
+    <div class="grid"><section class="card span3">
+      <h2>UAE ports &mdash; the coastline split that is the thesis</h2>
+      <p class="why">11 ports sit INSIDE the strait. Fujairah and Khor Fakkan are on the Gulf of Oman coast and bypass it entirely.</p>
+      <div id="leaf"></div>
+      <div id="map-legend"></div>
+    </section></div>
+  </div>
+
+  <div class="tab" id="tab-sat">
+    <div class="grid"><section class="card span3">
+      <h2>Sentinel-1 SAR imagery</h2>
+      <p class="why">Real chips, dB-stretched server-side. Blue circles are CFAR water detections &mdash; the vessel candidates the congestion index counts.</p>
+      <div style="display:flex;gap:9px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
+        <select id="chip-port"></select><select id="chip-date"></select>
+        <label class="legend" style="display:flex;gap:5px;align-items:center">
+          <input type="checkbox" id="chip-overlay" checked style="width:auto"> detections</label>
+      </div>
+      <div id="chip-meta"></div>
+      <div id="chip-img" style="margin-top:10px"></div>
+    </section></div>
+  </div>
+
+  <div class="tab" id="tab-models"><div class="grid" id="models-grid"></div></div>
+
+  <div class="tab" id="tab-pipe">
+    <div class="grid">
+      <section class="card span3">
+        <h2>Live GDELT ingest &mdash; how data actually arrives</h2>
+        <div id="gdelt-flow"></div>
+      </section>
+      <section class="card span2">
+        <h2>Orchestration DAG</h2>
+        <p class="why">Staleness derived from the filesystem, not a scheduler database that can drift from reality.</p>
+        <div id="dag"></div>
+      </section>
+      <section class="card"><h2>Measured volumes</h2><div id="volumes"></div></section>
+    </div>
+  </div>
+
+  <div class="tab" id="tab-sem">
+    <div class="grid"><section class="card span3">
+      <h2>Semantic layer &mdash; encoded prohibitions</h2>
+      <p class="why">Every rule was learned by getting something wrong and measuring the cost. These are injected into the LLM brief as guardrails.</p>
+      <div id="sem" class="scroll"></div>
+    </section></div>
+  </div>
+
+  <div class="foot" id="foot">&nbsp;</div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+        integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+<script>
+const API = location.origin.includes("8000") ? location.origin : "http://127.0.0.1:8000";
+const $ = id => document.getElementById(id);
+const esc = s => String(s??'').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+async function get(ep){
+  const r = await fetch(API+ep);
+  if(!r.ok){ const e=new Error("HTTP "+r.status); e.status=r.status;
+             try{e.body=await r.json()}catch{} throw e; }
+  return r.json();
+}
+const fail=(el,m)=>{ const n=$(el); if(n) n.innerHTML='<div class="err">'+esc(m)+'</div>'; };
+
+/* Tabs. Map and satellite initialise LAZILY: Leaflet needs a laid-out
+   container, and building it inside a display:none tab yields a zero-size
+   grey box that looks like a broken map. */
+let mapReady=false, chipsReady=false, modelsReady=false, pipeReady=false;
+document.querySelectorAll('nav button').forEach(b=>{
+  b.onclick = () => {
+    document.querySelectorAll('nav button').forEach(x=>x.classList.remove('on'));
+    document.querySelectorAll('.tab').forEach(x=>x.classList.remove('on'));
+    b.classList.add('on'); $('tab-'+b.dataset.tab).classList.add('on');
+    if(b.dataset.tab==='map'    && !mapReady){ mapReady=true;    loadMap(); }
+    if(b.dataset.tab==='sat'    && !chipsReady){ chipsReady=true; loadChips(); }
+    if(b.dataset.tab==='models' && !modelsReady){ modelsReady=true; loadModels(); }
+    if(b.dataset.tab==='pipe'   && !pipeReady){ pipeReady=true;   loadPipe(); }
+  };
+});
+
+function spark(pts,opt){
+  opt=opt||{}; const h=opt.h||64, onset=opt.onset||null, thr=opt.thr==null?null:opt.thr;
+  const v=pts.filter(p=>p.v!=null);
+  if(v.length<2) return '<div class="legend">not enough data to plot</div>';
+  const ys=v.map(p=>p.v), lo=Math.min.apply(null,ys), hi=Math.max.apply(null,ys), rng=(hi-lo)||1;
+  const W=100, X=i=>(i/(v.length-1))*W, Y=x=>h-((x-lo)/rng)*(h-8)-4;
+  const d=v.map((p,i)=>(i?'L':'M')+X(i).toFixed(2)+','+Y(p.v).toFixed(2)).join('');
+  let ex='';
+  if(thr!=null&&thr>=lo&&thr<=hi){const y=Y(thr).toFixed(2);
+    ex+='<line x1="0" y1="'+y+'" x2="'+W+'" y2="'+y+'" stroke="#d29922" stroke-width="0.5" stroke-dasharray="2,2" vector-effect="non-scaling-stroke"/>';}
+  if(onset){const i=v.findIndex(p=>p.d>=onset);
+    if(i>0) ex+='<line x1="'+X(i).toFixed(2)+'" y1="0" x2="'+X(i).toFixed(2)+'" y2="'+h+'" stroke="#f85149" stroke-width="0.6" vector-effect="non-scaling-stroke"/>';}
+  return '<svg class="spark" viewBox="0 0 '+W+' '+h+'" preserveAspectRatio="none" style="height:'+h+'px">'
+    +'<path d="'+d+'" fill="none" stroke="#58a6ff" stroke-width="1" vector-effect="non-scaling-stroke"/>'+ex+'</svg>';
+}
+
+let FRESH=null, RISK=null;
+async function loadFresh(){
+  try{
+    const f=await get('/freshness'); FRESH=f;
+    $('fresh').innerHTML=Object.keys(f.arms).map(k=>{
+      const a=f.arms[k], st=a.status||'—';
+      const cls=st==='CURRENT'?'p-ok':(st==='NO_DATA'||st==='UNAVAILABLE')?'p-bad':'p-warn';
+      const age=a.age_hours==null?'no data'
+        :(a.age_hours<24? a.age_hours.toFixed(1)+'h old':(a.age_hours/24).toFixed(1)+'d old');
+      return '<div class="fr"><div class="n">'+esc(k)+(a.live?' &middot; live':'')+'</div>'
+        +'<div class="v">'+esc(age)+'</div><span class="pill '+cls+'">'+esc(st)+'</span>'
+        +(a.note?'<div class="frnote">'+esc(a.note)+'</div>':'')+'</div>';
+    }).join('');
+  }catch(e){ $('fresh').innerHTML='<div class="err">API unreachable at '+API+'</div>'; }
+}
+
+async function loadRisk(){
+  try{
+    const r=await get('/risk?start=2025-09-01'); RISK=r;
+    const v=r.latest, cls=v==null?'p-dim':v>84?'p-bad':v>60?'p-warn':'p-ok';
+    const lab=v==null?'no index':v>84?'ELEVATED':v>60?'WATCH':'NORMAL';
+    $('risk-big').innerHTML=(v==null?'—':v.toFixed(1))+' <span class="unit">/ 100</span> <span class="pill '+cls+'">'+lab+'</span>';
+    let thr=null; (r.backtest_loeo.folds||[]).forEach(f=>{ if(thr==null&&f.threshold) thr=f.threshold; });
+    $('risk-spark').innerHTML=spark(r.data.map(d=>({d:d.date,v:d.risk_index})),{h:72,thr:thr})
+      +'<div class="legend">since 2025-09 &middot; dashed = detection threshold ('
+      +(thr==null?'n/a':thr.toFixed(1))+'), from quiet days excluding all events</div>';
+    const w=r.weights||{};
+    $('risk-caveat').innerHTML='<div class="legend" style="margin:10px 0 0">weights &nbsp; Arm B <b>'
+      +w.arm_b+'</b> &nbsp; Arm C <b>'+w.arm_c+'</b> &nbsp; Arm A <b>'+w.arm_a
+      +'</b> (zero &mdash; no measured signal)</div>'
+      +'<div class="caveat"><b>Read before quoting.</b> '+esc(r.honest_reading)+'</div>';
+    const f=r.backtest_loeo;
+    $('backtest').innerHTML='<div class="legend" style="margin-bottom:10px">'+esc(f.headline)+'</div>'
+      +'<table><thead><tr><th>Event</th><th>Status</th><th class="num">Peak</th><th class="num">Lead</th></tr></thead><tbody>'
+      +f.folds.map(x=>{const u=x.detected==null;
+        return '<tr><td>'+esc(x.event)+'</td><td><span class="pill '+(u?'p-dim':x.detected?'p-ok':'p-bad')+'">'
+          +(u?'UNSCOREABLE':x.detected?'DETECTED':'missed')+'</span></td><td class="num">'
+          +(x.peak_pre_onset==null?'—':x.peak_pre_onset)+'</td><td class="num">'
+          +(x.lead_days!=null?x.lead_days+'d':'—')+'</td></tr>';}).join('')
+      +'</tbody></table><div class="caveat good"><b>Fusion beats either arm alone.</b> On 2026 Hormuz: '
+      +'Arm B alone 38d, Arm C alone 2d, fused <b>43d</b>. Each arm detects what the other misses '
+      +'&mdash; that measured complementarity is the justification for the architecture.</div>';
+    loadAlerts();
+  }catch(e){ fail('risk-big','risk index unavailable'); fail('backtest','backtest unavailable'); }
+}
+
+function loadAlerts(){
+  const A=[];
+  if(FRESH) Object.keys(FRESH.arms).forEach(k=>{
+    const a=FRESH.arms[k];
+    if(a.status==='STALE') A.push(['a-warn','⏱',k+' data is STALE',
+      (a.age_hours==null?'':a.age_hours.toFixed(1)+'h old')+' (cadence: '+a.cadence+'). Any index built on it is stale too.']);
+    if(a.status==='UNAVAILABLE') A.push(['a-bad','⛔',k+' layer UNAVAILABLE', a.note||'']);
+  });
+  if(RISK){
+    let thr=null; (RISK.backtest_loeo.folds||[]).forEach(f=>{ if(thr==null&&f.threshold) thr=f.threshold; });
+    const v=RISK.latest;
+    if(v!=null&&thr!=null&&v>thr) A.push(['a-bad','▲','Risk index above detection threshold',
+      v.toFixed(1)+' vs threshold '+thr.toFixed(1)+'. '+RISK.honest_reading]);
+    const missed=RISK.backtest_loeo.folds.filter(f=>f.detected===false).length;
+    const uns=RISK.backtest_loeo.folds.filter(f=>f.detected==null).length;
+    if(missed) A.push(['a-warn','◐',missed+' labelled event(s) MISSED in backtest',
+      'The index did not cross threshold before onset for these. Detection is not guaranteed.']);
+    if(uns) A.push(['a-warn','◌',uns+' event(s) UNSCOREABLE',
+      'Insufficient prior history to have been predictable at the time. Excluded rather than counted as hits or misses.']);
+  }
+  A.push(['a-bad','∅','Arm A contributes no crisis signal',
+    'Fujairah vessel counts moved +0.0% across the 2026 onset; Mann-Whitney p=0.26–0.89 with both bypass ports negative. Carries zero fusion weight.']);
+  A.push(['a-warn','⚠','SAR CNN loses to a trivial baseline',
+    '0.837 vs 0.946 for a brightness random-forest. At ~15.6 m/px a vessel is 1–3 px, so there is little spatial structure for convolution to exploit.']);
+  $('alerts').innerHTML=A.map(a=>'<div class="alert '+a[0]+'"><div class="ic">'+a[1]
+    +'</div><div class="tx"><b>'+esc(a[2])+'</b>'+esc(a[3])+'</div></div>').join('');
+}
+
+async function loadArmB(){
+  try{
+    const r=await get('/arms/market/anomaly?start=2025-10-01');
+    const sep=(r.evaluation||{}).separation||{}, thr=(r.model||{}).threshold_p95;
+    $('armb').innerHTML=spark(r.data.map(d=>({d:d.date,v:d.recon_error})),{h:56,thr:thr,onset:'2026-03-02'})
+      +'<table><tbody><tr><td>AUC (Hormuz vs calm)</td><td class="num">'
+      +(sep.auc_hormuz_vs_calm||0).toFixed(3)+'</td></tr>'
+      +'<tr><td>Lead, 2026 Hormuz</td><td class="num">38d</td></tr>'
+      +'<tr><td>p95 threshold</td><td class="num">'+(thr==null?'—':thr.toFixed(3))+'</td></tr></tbody></table>'
+      +'<div class="caveat"><b>1 of 5 anchors.</b> '+esc(r.caveat)+'</div>';
+  }catch(e){ fail('armb','Arm B unavailable'); }
+}
+async function loadArmC(){
+  try{
+    const r=await get('/features?start=2019-04-01&columns=gdelt_conflict_share');
+    $('armc').innerHTML=spark(r.data.map(d=>({d:d.date,v:d.gdelt_conflict_share})),{h:56})
+      +'<table><tbody><tr><td>AUC, point events</td><td class="num">0.848</td></tr>'
+      +'<tr><td>Peak z, 2019 incidents</td><td class="num">3.4–4.7</td></tr>'
+      +'<tr><td>Lead, 2026 Hormuz</td><td class="num">2d</td></tr></tbody></table>'
+      +'<div class="caveat"><b>Slugs are a degraded proxy.</b> 39% of GDELT URLs are opaque '
+      +'numeric IDs, missing-not-at-random — outlets on numeric-ID CMSs are systematically '
+      +'excluded, skewing region and language coverage.</div>';
+  }catch(e){ fail('armc','Arm C unavailable'); }
+}
+async function loadArmA(){
+  try{
+    const r=await get('/arms/sar'), byPort={};
+    r.data.filter(d=>d.usable).forEach(d=>{ if(!byPort[d.port]) byPort[d.port]=[]; byPort[d.port].push(d.vessels_on_water); });
+    const rows=Object.keys(byPort).map(p=>{ const v=byPort[p].slice().sort((a,b)=>a-b);
+      return '<tr><td>'+esc(p)+'</td><td class="num">'+v[Math.floor(v.length/2)]+'</td><td class="num">'+v.length+'</td></tr>';}).join('');
+    $('arma').innerHTML='<table><thead><tr><th>Port</th><th class="num">median</th><th class="num">passes</th></tr></thead><tbody>'
+      +rows+'</tbody></table><div class="legend">'+r.usable+' of '+r.count+' chips full-coverage &middot; '+esc(r.method)+'</div>'
+      +'<div class="caveat null"><b>NULL RESULT — no reroute signal.</b> Fujairah counts changed '
+      +'<b>+0.0%</b> across the 2026-03-02 onset; Mann-Whitney p=0.26–0.89, both bypass ports '
+      +'NEGATIVE in both orbits. Rules out a &gt;33% shift, not a subtle one.</div>';
+  }catch(e){ fail('arma','Arm A unavailable'); }
+}
+async function loadVessel(){
+  try{ await get('/vessels'); }
+  catch(e){ const b=(e.body&&e.body.detail)||{};
+    $('vessel').innerHTML='<div class="big" style="font-size:24px;color:var(--dim)">NO DATA</div>'
+      +'<div class="caveat null"><b>501 — deliberately not implemented.</b> '
+      +esc(b.message||'No free source provides live Gulf vessel positions.')+'</div>'
+      +'<div class="legend">'+esc(b.why_no_placeholder||'')+'</div>'; }
+}
+
+/* MAP — Leaflet + ArcGIS tiles, matching ports/uae_ports_viewer.html */
+async function loadMap(){
+  try{
+    const r=await get('/ports');
+    const m=L.map('leaf',{scrollWheelZoom:false}).setView([25.3,55.6],7);
+    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',
+      {maxZoom:16, attribution:'Esri — World Street Map'}).addTo(m);
+    const pts=[];
+    r.ports.forEach(p=>{
+      const bypass=!p.hormuz_dependent, approx=p.coord_precision!=='exact';
+      L.circleMarker([p.lat,p.lon],{radius:bypass?10:7,
+        color:approx?'#d29922':(bypass?'#3fb950':'#f85149'), weight:approx?3:2,
+        fillColor:bypass?'#3fb950':'#f85149', fillOpacity:.75}).addTo(m)
+       .bindPopup('<b>'+esc(p.name)+'</b><br><span style="color:'+(bypass?'#3fb950':'#f85149')+'">'
+        +(bypass?'BYPASS — Gulf of Oman coast':'INSIDE the strait')+'</span><br>'
+        +esc(p.type)+'<br><span style="color:#8b9aab">'+esc(p.emirate)+'</span>'
+        +(approx?'<br><span style="color:#d29922">⚠ approximate coordinates</span>':'')
+        +'<br><span style="color:#8b9aab;font-size:11.5px">'+esc(String(p.role||'').slice(0,160))+'</span>');
+      pts.push([p.lat,p.lon]);
+    });
+    m.fitBounds(pts,{padding:[35,35]});
+    setTimeout(function(){ m.invalidateSize(); },200);
+    $('map-legend').innerHTML='<div class="legend"><span style="color:#f85149">●</span> Hormuz-dependent ('
+      +r.hormuz_dependent+') &nbsp; <span style="color:#3fb950">●</span> bypass ('
+      +(r.ports.length-r.hormuz_dependent)+'): '+esc(r.bypass.join(', '))
+      +' &nbsp; <span style="color:#d29922">◯</span> '+esc(r.caveat)+'</div>'
+      +'<div class="caveat"><b>Fujairah is the port the thesis rests on</b> — the world’s #2 '
+      +'bunkering hub, outside the strait. Arm A measured its vessel count across the 2026 onset at '
+      +'<b>+0.0%</b>, so the reroute this map motivates is NOT visible in the satellite data. '
+      +'The map shows the hypothesis, not a result.</div>';
+  }catch(e){ fail('map-legend','port reference unavailable'); }
+}
+
+/* SATELLITE */
+let CHIPS=[];
+async function loadChips(){
+  try{
+    const r=await get('/chips?limit=500'); CHIPS=r.chips;
+    const ports=[]; CHIPS.forEach(c=>{ if(ports.indexOf(c.port)<0) ports.push(c.port); });
+    ports.sort();
+    $('chip-port').innerHTML=ports.map(p=>'<option'+(p==='fujairah'?' selected':'')+'>'+esc(p)+'</option>').join('');
+    $('chip-port').onchange=fillDates; $('chip-date').onchange=showChip;
+    $('chip-overlay').onchange=showChip; fillDates();
+  }catch(e){ fail('chip-img','chip catalogue unavailable'); }
+}
+function fillDates(){
+  const port=$('chip-port').value;
+  const q=c=>(c.coverage_status==='FULL'?2:0)+(c.orbit_state?1:0);
+  const ds=CHIPS.filter(c=>c.port===port).slice().sort((a,b)=>(q(b)-q(a))||(a.date<b.date?1:-1));
+  $('chip-date').innerHTML=ds.map(c=>'<option value="'+esc(c.date)+'">'+esc(c.date)+' &middot; '
+    +esc(c.orbit_state||'no orbit')+' &middot; '+(c.coverage_status==='FULL'?'full':'PARTIAL')+'</option>').join('');
+  showChip();
+}
+function showChip(){
+  const port=$('chip-port').value, date=$('chip-date').value; if(!port||!date) return;
+  let c={}; CHIPS.forEach(x=>{ if(x.port===port&&x.date===date) c=x; });
+  const ov=$('chip-overlay').checked;
+  $('chip-meta').innerHTML='<table><tbody><tr><td>orbit</td><td class="num">'
+    +esc(c.orbit_state||'not recorded')+'</td><td>platform</td><td class="num">'
+    +esc(c.platform||'not recorded')+'</td></tr><tr><td>coverage</td><td class="num">'
+    +(c.coverage==null?'—':(c.coverage*100).toFixed(1)+'%')+'</td><td>vessels on water</td><td class="num">'
+    +(c.vessels_on_water==null?'—':c.vessels_on_water)+'</td></tr></tbody></table>'
+    +(c.coverage_status!=='FULL'?'<div class="caveat"><b>PARTIAL chip.</b> Clipped by the swath edge '
+      +'— it reports fewer vessels purely because of the satellite footprint. Never compare its '
+      +'count against a full chip without normalising.</div>':'')
+    +(!c.orbit_state?'<div class="caveat"><b>Orbit not recorded.</b> One chip of 447, collected before '
+      +'orbit direction was captured. Not comparable to the rest.</div>':'')
+    +(port==='khalifa'?'<div class="caveat"><b>Khalifa: 2× orbit artefact.</b> Median vessels '
+      +'ascending 51 vs descending 26 on the same water. Comparing across look directions here '
+      +'manufactures a congestion change out of nothing.</div>':'');
+  $('chip-img').innerHTML='<img src="'+API+'/chips/'+encodeURIComponent(port)+'/'+encodeURIComponent(date)
+    +'.png?overlay='+ov+'" alt="SAR chip" style="width:100%;max-width:760px;border-radius:8px;border:1px solid var(--line)">'
+    +'<div class="legend">Sentinel-1 GRD, VV, gamma0 terrain-corrected &middot; dB stretch −35→+5, '
+    +'FIXED (auto-stretch would make a busy anchorage and empty sea look identical) &middot; ~15.6 m/px, '
+    +'so a vessel is 1–3 px</div>';
+}
+
+/* MODELS & DL CONCEPTS */
+var DL=[
+ {t:'Arm B — Sequence VAE (LSTM encoder/decoder)', tag:'VAE · LSTM · unsupervised',
+  arch:'x ∈ R^(20×9) --LSTM(48)--> h --> mu ∈ R^8\n'
+      +'                          \\--> log sigma^2 ∈ R^8\n'
+      +'z = mu + sigma * eps,  eps ~ N(0,I)      <- reparameterisation\n'
+      +'z --RepeatVector(20)--LSTM(48)--TimeDistributed(Dense(9))--> x_hat\n\n'
+      +'L = E[-log p(x|z)] + beta * D_KL( q(z|x) || p(z) )\n'
+      +'D_KL = -0.5 * sum(1 + log sigma^2 - mu^2 - sigma^2)',
+  why:'Unsupervised by necessity: with ~5 labels a supervised classifier cannot be validated. Trains ONLY on non-event windows and scores by reconstruction error, so labels EVALUATE and never train.',
+  facts:[['trained on','1,302 non-event windows'],['latent dim','8'],['recon / KL','0.532 / 2.40'],['AUC','0.680'],['lead (2026)','38 days']],
+  lesson:'Beta warm-up is load-bearing: beta=1.0 from step 0 gave KL 0.134 nats across 8 dims — near-total posterior collapse. Annealing 0→0.1 over the first third of training fixed it.'},
+ {t:'Arm A — MobileNetV2 transfer learning', tag:'CNN · transfer learning · depthwise-separable convolution',
+  arch:'64×64×3 patch  (VV_dB, VH_dB, VV/VH ratio)\n'
+      +'  -> Rescaling(2,-1) -> MobileNetV2 (ImageNet)\n'
+      +'     -> GlobalAveragePooling2D -> Dropout(0.3) -> Dense(3, softmax)\n\n'
+      +'depthwise-separable cost ratio = 1/N + 1/D_k^2\n'
+      +'  D_k=3, N=256  ->  ~0.115   (~8.7x fewer MACs than standard conv)',
+  why:'Chosen over EfficientNet because there is no GPU (TF >=2.11 has no native Windows GPU support). Two-stage: frozen-conv head training, then top-30 fine-tune with BatchNorm left adaptive.',
+  facts:[['patches','12,687 from 371 acquisitions'],['classes','vessel / infrastructure / clutter'],['CNN accuracy','0.837'],['baseline (RF)','0.946'],['verdict','DOES NOT beat baseline']],
+  lesson:'One NaN patch in 12,687 destroyed training — np.clip PROPAGATES NaN, one NaN gradient turned every weight NaN, and the model emitted a constant (35% "accuracy"). The trivial baseline is what exposed it.'},
+ {t:'Arm C — Multilingual sentence embeddings', tag:'transformer · zero-shot · contrastive scoring',
+  arch:'slug text --paraphrase-multilingual-MiniLM-L12-v2--> v ∈ R^384 (unit norm)\n\n'
+      +'score = max cos(v, disruption_anchors)    <- 10 reference sentences\n'
+      +'      - max cos(v, calm_anchors)          <-  6 ordinary maritime sentences\n\n'
+      +'daily = mean of the day’s top-10 scores',
+  why:'The contrast is what stops it being a volume proxy: similarity alone rates any shipping headline moderately. Subtracting ordinary maritime language leaves the escalation-specific part — routine news scores NEGATIVE.',
+  facts:[['corpus','427,620 usable slugs'],['AUC, point events','0.848'],['precision@20','0.90 vs 0.53 base'],['EN↔AR cosine','0.866 vs 0.073 noise'],['lead (2026)','2 days']],
+  lesson:'Zero-shot by design — consumes no labels, so none are burned. Anchor sentences were written BEFORE scoring and must not be tuned to improve a result; that would fit the label through the back door.'},
+ {t:'Fusion — weighted causal-percentile rule', tag:'ensemble · causal ranking · leave-one-event-out',
+  arch:'per arm: causal EXPANDING percentile (never a full-sample rank)\n'
+      +'risk = sum(w_i * pct_i) / sum(w_i available) * 100\n\n'
+      +'w_B = 0.50    w_C = 0.50    w_A = 0.00',
+  why:'NOT a trained model. Five labels cannot validate a fitted combiner, so weights come from each arm’s separately measured performance and are not tuned here. A GBM runs alongside as an explicitly illustrative comparison.',
+  facts:[['detected','2 of 3 scoreable'],['median lead','36 days'],['GBM folds','2 of 3 single-class'],['GBM AUC','0.643 (one fold)']],
+  lesson:'The GBM came out degenerate — 233 of 282 rows positive — which IS the finding: it is the concrete demonstration that 5 labels cannot support a fitted combiner.'}
+];
+function loadModels(){
+  get('/models').then(function(m){
+    $('models-grid').innerHTML = DL.map(function(d){
+      return '<section class="card span2"><h2>'+esc(d.t)+'</h2><p class="why">'+esc(d.tag)+'</p>'
+        +'<div class="arch">'+esc(d.arch)+'</div>'
+        +'<p style="font-size:13px;color:var(--muted);margin:12px 0 0">'+esc(d.why)+'</p>'
+        +'<table style="margin-top:10px"><tbody>'
+        +d.facts.map(function(f){return '<tr><td>'+esc(f[0])+'</td><td class="num">'+esc(f[1])+'</td></tr>';}).join('')
+        +'</tbody></table><div class="caveat"><b>Hard-won lesson.</b> '+esc(d.lesson)+'</div></section>';
+    }).join('')
+    +'<section class="card span3"><h2>Training artefacts on disk</h2>'
+    +'<table><thead><tr><th>Model</th><th>Status</th><th>Caveat carried with it</th></tr></thead><tbody>'
+    +(m.models||[]).map(function(x){return '<tr><td>'+esc(x.title||x.name)+'</td><td><span class="pill '
+      +(x.status==='trained'?'p-ok':'p-dim')+'">'+esc(x.status)+'</span></td>'
+      +'<td style="font-size:12px;color:var(--muted)">'+esc(x.caveat||'')+'</td></tr>';}).join('')
+    +'</tbody></table><div class="caveat good"><b>These models are LOADED and RUN per request</b> '
+    +'— see /predict/text and /predict/market. The backend serves inference, not stored numbers.</div></section>';
+  }).catch(function(){ fail('models-grid','model registry unavailable'); });
+}
+
+/* PIPELINE */
+async function loadPipe(){
+  try{
+    const v=await get('/pipeline/volumes');
+    $('gdelt-flow').innerHTML='<div class="flow">'
+      +'<span class="st">GDELT publishes<br><b>every 15 min</b></span><span class="ar">→</span>'
+      +'<span class="st">poller (Docker)<br>slot-aligned, +240s lag</span><span class="ar">→</span>'
+      +'<span class="st">61-column parse<br>schema validated</span><span class="ar">→</span>'
+      +'<span class="st">3-way Gulf filter<br>bbox OR FIPS OR keyword</span><span class="ar">→</span>'
+      +'<span class="st">dedup on SOURCEURL</span><span class="ar">→</span>'
+      +'<span class="st">parquet<br>dt=YYYY-MM-DD</span></div>'
+      +'<table><tbody><tr><td>live slots on disk</td><td class="num">'+v.gdelt_live_slots.toLocaleString()
+      +'</td><td>size</td><td class="num">'+v.gdelt_live_mb.toLocaleString()+' MB</td></tr>'
+      +'<tr><td>historical windows</td><td class="num">'+v.gdelt_historical_windows
+      +'</td><td>ingest rate</td><td class="num">'+v.ingest_rate.rows_per_second+' rows/s</td></tr>'
+      +'<tr><td>SAR chips</td><td class="num">'+v.sar_chips+'</td><td>size</td><td class="num">'
+      +v.sar_chips_mb.toLocaleString()+' MB</td></tr></tbody></table>'
+      +'<div class="caveat"><b>Index on DATEADDED, never Day.</b> Day is when the event allegedly '
+      +'happened as coded from the article and trails publication by up to 365 days — using it '
+      +'places information before it was knowable. Textbook look-ahead bias.</div>'
+      +'<div class="caveat"><b>Dedup before counting.</b> GDELT emits one row per actor pair per '
+      +'article, a measured 60–75% overcount. A volume feature on raw rows spikes when wire '
+      +'services repeat a story, not when something new happens.</div>';
+    $('volumes').innerHTML='<dl class="kv"><dt>Kafka utilisation</dt><dd>'+v.ingest_rate.utilisation_pct
+      +'%</dd><dt>rows/day</dt><dd>'+v.ingest_rate.rows_per_day.toLocaleString()
+      +'</dd><dt>broker design pt</dt><dd>'+(v.ingest_rate.kafka_single_broker_msg_per_second/1e6)
+      +'M msg/s</dd></dl><div class="caveat"><b>Kafka is not justified here.</b> '
+      +esc(v.ingest_rate.verdict)+'</div>';
+  }catch(e){ fail('gdelt-flow','pipeline volumes unavailable'); }
+  try{
+    const g=await get('/pipeline');
+    $('dag').innerHTML='<table><thead><tr><th>Stage</th><th>State</th><th>Why</th></tr></thead><tbody>'
+      +g.stages.map(function(s){return '<tr><td>'+esc(s.name)+(s.manual?' <span class="pill p-dim">manual</span>':'')
+        +'</td><td><span class="pill '+(s.status==='FRESH'?'p-ok':s.status==='STALE'?'p-warn':'p-dim')+'">'
+        +esc(s.status)+'</span></td><td style="font-size:12px;color:var(--muted)">'+esc(s.reason)+'</td></tr>';}).join('')
+      +'</tbody></table><div class="caveat"><b>Quota-spending stages never auto-run.</b> Satellite '
+      +'collection costs ~5,947 PU against a 30,000/month HARD CAP where overage is refused, not '
+      +'billed. An orchestrator that re-collected because a timestamp moved would be actively dangerous.</div>';
+  }catch(e){ fail('dag','DAG unavailable'); }
+}
+
+async function loadSem(){
+  try{ const s=await get('/semantic/forbidden');
+    $('sem').innerHTML=s.rules.map(function(r){
+      return '<div class="rule"><code>'+esc(r.metric)+'</code> — '+esc(r.rule)+'</div>';}).join('');
+  }catch(e){ fail('sem','semantic layer unavailable'); }
+}
+
+$('go').onclick=async function(){
+  const texts=$('txt').value.split('\n').map(function(s){return s.trim();}).filter(Boolean);
+  if(!texts.length) return;
+  $('go').disabled=true; $('inf').innerHTML='<div class="legend">encoding…</div>';
+  try{
+    const r=await fetch(API+'/predict/text',{method:'POST',
+      headers:{'Content-Type':'application/json'},body:JSON.stringify({texts:texts})});
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    const j=await r.json(); j.results.sort(function(a,b){return b.chokepoint_score-a.chokepoint_score;});
+    $('inf').innerHTML=j.results.map(function(x){
+      return '<div class="score-row"><span class="t">'+esc(x.text)+'</span><span class="s">'
+        +x.chokepoint_score.toFixed(4)+'</span><span class="pill '
+        +(x.level==='HIGH'?'p-bad':x.level==='ELEVATED'?'p-warn':'p-dim')+'">'+esc(x.level)+'</span></div>';}).join('')
+      +'<div class="legend">Contrastive: similarity to disruption references minus similarity to '
+      +'ordinary maritime language. Routine shipping news scores negative — the contrast working.</div>';
+  }catch(e){ fail('inf','inference unavailable — the first call loads the model (~30s). Try again.'); }
+  $('go').disabled=false;
+};
+
+loadFresh().then(loadRisk);
+loadArmB(); loadArmC(); loadArmA(); loadVessel(); loadSem();
+$('foot').textContent='Served by the Hormuz API · polling, not websockets: the fastest arm updates every 15 minutes.';
+</script>
+</body>
+</html>

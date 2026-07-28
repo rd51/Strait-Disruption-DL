@@ -1,0 +1,230 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>UAE Ports GeoJSON Viewer</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #0f172a;
+      --panel: rgba(15, 23, 42, 0.88);
+      --text: #e2e8f0;
+      --muted: #94a3b8;
+      --accent: #38bdf8;
+      --gulf: #f59e0b;
+      --oman: #22c55e;
+    }
+
+    html, body {
+      margin: 0;
+      height: 100%;
+      font-family: Segoe UI, Arial, sans-serif;
+      background: linear-gradient(135deg, #081120 0%, #0f172a 50%, #111827 100%);
+      color: var(--text);
+    }
+
+    #map {
+      position: absolute;
+      inset: 0;
+    }
+
+    .panel {
+      position: absolute;
+      top: 16px;
+      left: 16px;
+      z-index: 1000;
+      max-width: 360px;
+      padding: 14px 16px;
+      border-radius: 14px;
+      background: var(--panel);
+      backdrop-filter: blur(10px);
+      box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
+      border: 1px solid rgba(148, 163, 184, 0.2);
+    }
+
+    .panel h1 {
+      margin: 0 0 6px;
+      font-size: 18px;
+      line-height: 1.2;
+    }
+
+    .panel p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    .legend {
+      display: flex;
+      gap: 10px;
+      margin-top: 10px;
+      font-size: 12px;
+      color: var(--muted);
+      flex-wrap: wrap;
+    }
+
+    .swatch {
+      display: inline-block;
+      width: 10px;
+      height: 10px;
+      border-radius: 999px;
+      margin-right: 6px;
+      vertical-align: middle;
+    }
+
+    .leaflet-popup-content-wrapper,
+    .leaflet-popup-tip {
+      background: #0f172a;
+      color: var(--text);
+    }
+
+    .leaflet-popup-content {
+      margin: 12px 14px;
+      min-width: 220px;
+    }
+
+    .title {
+      font-size: 15px;
+      font-weight: 700;
+      margin-bottom: 6px;
+    }
+
+    .meta {
+      font-size: 12px;
+      color: #cbd5e1;
+      line-height: 1.45;
+    }
+
+    .status {
+      position: absolute;
+      right: 16px;
+      top: 16px;
+      z-index: 1000;
+      padding: 10px 12px;
+      border-radius: 12px;
+      background: rgba(15, 23, 42, 0.82);
+      border: 1px solid rgba(148, 163, 184, 0.2);
+      color: var(--text);
+      font-size: 13px;
+    }
+  </style>
+</head>
+<body>
+  <div id="map"></div>
+  <div class="panel">
+    <h1>UAE Ports GeoJSON</h1>
+    <p>Loads the external <strong>uae_ports.geojson</strong> file and plots each port on an interactive map.</p>
+    <p style="margin-top:8px;">
+      <label for="geojsonFile" style="display:block; margin-bottom:6px; color: var(--text); font-weight:600;">Choose GeoJSON file</label>
+      <input id="geojsonFile" type="file" accept=".geojson,.json,application/geo+json,application/json" style="width:100%; color: var(--muted);" />
+    </p>
+    <div class="legend">
+      <span><i class="swatch" style="background: var(--gulf);"></i>Gulf side</span>
+      <span><i class="swatch" style="background: var(--oman);"></i>Oman side</span>
+    </div>
+  </div>
+  <div class="status" id="status">Loading GeoJSON...</div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+  <script>
+    const defaultGeoJsonUrl = './uae_ports.geojson';
+    const map = L.map('map', { worldCopyJump: true }).setView([24.5, 55.5], 7);
+
+    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', {
+      maxZoom: 18,
+      attribution: 'Tiles &copy; Esri, HERE, Garmin, FAO, NOAA, USGS'
+    }).addTo(map);
+
+    const geojsonFile = document.getElementById('geojsonFile');
+    const status = document.getElementById('status');
+    let activeLayer = null;
+
+    function markerColor(properties) {
+      return properties.coast_side === 'Oman' ? '#22c55e' : '#f59e0b';
+    }
+
+    function popupHtml(feature) {
+      const props = feature.properties || {};
+      const routes = Array.isArray(props.primary_routes) ? props.primary_routes.join(', ') : '';
+      return `
+        <div class="title">${props.name || 'Unnamed port'}</div>
+        <div class="meta"><strong>Emirate:</strong> ${props.emirate || 'n/a'}</div>
+        <div class="meta"><strong>Type:</strong> ${props.type || 'n/a'}</div>
+        <div class="meta"><strong>Coast:</strong> ${props.coast_side || 'n/a'}</div>
+        <div class="meta"><strong>Hormuz dependent:</strong> ${props.hormuz_dependent ? 'Yes' : 'No'}</div>
+        <div class="meta"><strong>Routes:</strong> ${routes || 'n/a'}</div>
+        <div class="meta" style="margin-top:6px;">${props.role || ''}</div>
+      `;
+    }
+
+    function renderGeojson(geojson, sourceLabel) {
+      if (activeLayer) {
+        activeLayer.remove();
+      }
+
+      activeLayer = L.geoJSON(geojson, {
+        pointToLayer: (feature, latlng) => L.circleMarker(latlng, {
+          radius: 7,
+          weight: 2,
+          color: '#0f172a',
+          fillColor: markerColor(feature.properties || {}),
+          fillOpacity: 0.9
+        }),
+        onEachFeature: (feature, layer) => layer.bindPopup(popupHtml(feature))
+      }).addTo(map);
+
+      const bounds = activeLayer.getBounds();
+      if (bounds.isValid()) {
+        map.fitBounds(bounds.pad(0.12));
+      }
+
+      const count = Array.isArray(geojson.features) ? geojson.features.length : 0;
+      status.textContent = `Loaded ${count} features from ${sourceLabel}`;
+    }
+
+    async function loadGeojsonFromUrl(url) {
+      const response = await fetch(url);
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+      return response.json();
+    }
+
+    async function loadDefaultGeojson() {
+      if (location.protocol === 'file:') {
+        status.textContent = 'Choose uae_ports.geojson from the file picker.';
+        return;
+      }
+
+      try {
+        const geojson = await loadGeojsonFromUrl(defaultGeoJsonUrl);
+        renderGeojson(geojson, 'uae_ports.geojson');
+      } catch (error) {
+        status.textContent = `Failed to load GeoJSON: ${error.message}`;
+        console.error(error);
+      }
+    }
+
+    geojsonFile.addEventListener('change', async () => {
+      const file = geojsonFile.files && geojsonFile.files[0];
+      if (!file) {
+        return;
+      }
+
+      try {
+        const text = await file.text();
+        const geojson = JSON.parse(text);
+        renderGeojson(geojson, file.name);
+      } catch (error) {
+        status.textContent = `Failed to load selected file: ${error.message}`;
+        console.error(error);
+      }
+    });
+
+    loadDefaultGeojson();
+  </script>
+</body>
+</html>

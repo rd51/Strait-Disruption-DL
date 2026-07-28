@@ -1,0 +1,50 @@
+# ── secrets — never commit ────────────────────────────────────────────────
+# Protect by LOCATION first: everything in secrets/ is ignored regardless of
+# what it is named. A filename pattern only protects the spellings someone
+# remembered to list, and this project has already had a credential saved as
+# .key and again as .txt (Windows File Explorer appends .txt silently).
+secrets/
+
+# Belt and braces for credentials that live outside secrets/.
+aisstream.*
+gfw_token.*
+*credential*
+*.key
+.env
+*.pem
+service-account*.json
+# NOTE: deliberately NOT using *token* or *secret* — those would swallow
+# legitimate NLP source files like tokenizer.py or token_utils.py.
+
+# ── collected data — regenerable, large, and not source ───────────────────
+data/raw/
+vessels_snapshot.json
+
+# ── python ────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.ipynb_checkpoints/
+.pytest_cache/
+
+# ── os / editor ───────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# ── derived + trained artefacts — REGENERABLE, and some are huge ──────────
+# Everything under data/derived and data/models is rebuilt by the pipeline
+# (`python -m backend.orchestration.dag --run`). The patch tensor alone is
+# 595 MB, which is both over GitHub's 100 MB per-file limit and permanent
+# once committed. Model weights are binary and regenerable too.
+data/derived/
+data/models/
+# ...but KEEP the small JSON reports: they are the measured evidence behind
+# every number quoted in the writeup, and they are a few KB each.
+!data/derived/fusion/
+!data/derived/fusion/*.json
+!data/models/*/
+!data/models/*/report.json
+!data/models/*/evaluation.json

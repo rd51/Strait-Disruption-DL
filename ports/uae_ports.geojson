@@ -1,0 +1,319 @@
+{
+  "type": "FeatureCollection",
+  "metadata": {
+    "title": "UAE Ports - trade gateways & export hubs",
+    "note": "Coordinates for exact-precision ports from Google Places; approximate ports and all offshore terminals placed from known locations - verify before production use. Roles and routes are structural trade-lane knowledge, not live AIS measurement.",
+    "coast_sides": {
+      "Gulf": "inside Strait of Hormuz - Hormuz-dependent",
+      "Oman": "Gulf of Oman - bypasses the strait"
+    },
+    "count": 13
+  },
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          55.0402778,
+          25.0236111
+        ]
+      },
+      "properties": {
+        "name": "Jebel Ali Port",
+        "emirate": "Dubai",
+        "coast_side": "Gulf",
+        "hormuz_dependent": true,
+        "type": "Container / transshipment",
+        "role": "Largest port in the Middle East; DP World flagship; ~9th-busiest container port globally. Major Asia-Europe transshipment hub.",
+        "primary_routes": [
+          "East Asia (China)",
+          "South Asia (India)",
+          "Europe",
+          "East Africa",
+          "Americas"
+        ],
+        "coord_precision": "exact"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          54.6494965,
+          24.8099016
+        ]
+      },
+      "properties": {
+        "name": "Khalifa Port",
+        "emirate": "Abu Dhabi",
+        "coast_side": "Gulf",
+        "hormuz_dependent": true,
+        "type": "Container / industrial",
+        "role": "Abu Dhabi flagship deep-water port (AD Ports/KIZAD); semi-automated; containers plus petrochemical & aluminium exports.",
+        "primary_routes": [
+          "East Asia",
+          "Europe",
+          "US East Coast",
+          "Indian subcontinent"
+        ],
+        "coord_precision": "exact"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          54.3764133,
+          24.5184068
+        ]
+      },
+      "properties": {
+        "name": "Zayed Port",
+        "emirate": "Abu Dhabi",
+        "coast_side": "Gulf",
+        "hormuz_dependent": true,
+        "type": "Cruise / general & bulk cargo",
+        "role": "Older Abu Dhabi city port; container ops moved to Khalifa; now cruise, general and breakbulk cargo.",
+        "primary_routes": [
+          "Regional Gulf",
+          "breakbulk"
+        ],
+        "coord_precision": "exact"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          55.2756505,
+          25.284755
+        ]
+      },
+      "properties": {
+        "name": "Port Rashid",
+        "emirate": "Dubai",
+        "coast_side": "Gulf",
+        "hormuz_dependent": true,
+        "type": "Cruise (former cargo)",
+        "role": "Dubai's original port; cargo shifted to Jebel Ali; now primarily a cruise terminal.",
+        "primary_routes": [
+          "Cruise",
+          "historic Gulf trade"
+        ],
+        "coord_precision": "exact"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          56.3635322,
+          25.1727756
+        ]
+      },
+      "properties": {
+        "name": "Port of Fujairah",
+        "emirate": "Fujairah",
+        "coast_side": "Oman",
+        "hormuz_dependent": false,
+        "type": "Bunkering / oil storage",
+        "role": "World's #2 bunkering hub and major oil-storage terminal. Sits OUTSIDE Hormuz on the Gulf of Oman - the strategic release valve when the strait is disrupted. Most important port for disruption early-warning.",
+        "primary_routes": [
+          "Global tanker traffic",
+          "oil to Asia & Europe",
+          "bunkering"
+        ],
+        "coord_precision": "exact"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          56.367736,
+          25.3526481
+        ]
+      },
+      "properties": {
+        "name": "Khor Fakkan Container Terminal",
+        "emirate": "Sharjah",
+        "coast_side": "Oman",
+        "hormuz_dependent": false,
+        "type": "Container / transshipment",
+        "role": "Deep natural harbour; major container transshipment hub; bypasses Hormuz on the Gulf of Oman.",
+        "primary_routes": [
+          "Asia-Europe mainline",
+          "feeder services to Gulf ports"
+        ],
+        "coord_precision": "exact"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          55.3776082,
+          25.3609963
+        ]
+      },
+      "properties": {
+        "name": "Khalid Port",
+        "emirate": "Sharjah",
+        "coast_side": "Gulf",
+        "hormuz_dependent": true,
+        "type": "Container / general cargo",
+        "role": "Sharjah's main Gulf-coast container and general cargo port.",
+        "primary_routes": [
+          "Regional Gulf",
+          "containers"
+        ],
+        "coord_precision": "exact"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          55.49,
+          25.4666
+        ]
+      },
+      "properties": {
+        "name": "Hamriyah Port",
+        "emirate": "Sharjah",
+        "coast_side": "Gulf",
+        "hormuz_dependent": true,
+        "type": "Free zone / oil & gas / industrial",
+        "role": "Free-zone port; oil & gas services, petrochemicals, heavy industrial exports.",
+        "primary_routes": [
+          "Petrochemicals",
+          "industrial",
+          "regional"
+        ],
+        "coord_precision": "approximate"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          55.4539514,
+          25.4201864
+        ]
+      },
+      "properties": {
+        "name": "Ajman Port",
+        "emirate": "Ajman",
+        "coast_side": "Gulf",
+        "hormuz_dependent": true,
+        "type": "General cargo / container",
+        "role": "Serves Ajman Free Zone; general cargo, containers, regional trade.",
+        "primary_routes": [
+          "Regional Gulf",
+          "general cargo"
+        ],
+        "coord_precision": "exact"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          55.9533333,
+          25.7916667
+        ]
+      },
+      "properties": {
+        "name": "Mina Saqr",
+        "emirate": "Ras Al Khaimah",
+        "coast_side": "Gulf",
+        "hormuz_dependent": true,
+        "type": "Bulk export",
+        "role": "Northernmost UAE port, closest to the strait; bulk exports - aggregates, cement, limestone (RAK building-materials).",
+        "primary_routes": [
+          "Regional bulk",
+          "building materials to South Asia & Gulf"
+        ],
+        "coord_precision": "exact"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          52.6167,
+          24.1833
+        ]
+      },
+      "properties": {
+        "name": "Jebel Dhanna / Ruwais Terminal",
+        "emirate": "Abu Dhabi",
+        "coast_side": "Gulf",
+        "hormuz_dependent": true,
+        "type": "Crude oil export terminal",
+        "role": "Major ADNOC crude loading terminal serving Ruwais; one of the UAE's largest oil export points.",
+        "primary_routes": [
+          "Crude to East Asia",
+          "India",
+          "Europe"
+        ],
+        "coord_precision": "approximate"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          52.8736,
+          25.1461
+        ]
+      },
+      "properties": {
+        "name": "Das Island Terminal",
+        "emirate": "Abu Dhabi",
+        "coast_side": "Gulf",
+        "hormuz_dependent": true,
+        "type": "Crude / LNG offshore terminal",
+        "role": "Offshore ADNOC oil & LNG export island; loads crude and liquefied gas directly for export.",
+        "primary_routes": [
+          "Crude & LNG to East Asia (Japan, Korea)"
+        ],
+        "coord_precision": "approximate"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          53.0833,
+          24.8667
+        ]
+      },
+      "properties": {
+        "name": "Zirku Island Terminal",
+        "emirate": "Abu Dhabi",
+        "coast_side": "Gulf",
+        "hormuz_dependent": true,
+        "type": "Crude oil offshore terminal",
+        "role": "Offshore crude processing and export terminal (Upper Zakum / offshore fields).",
+        "primary_routes": [
+          "Crude to Asia"
+        ],
+        "coord_precision": "approximate"
+      }
+    }
+  ]
+}

@@ -1,0 +1,961 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hormuz Disruption Engine — Execution Plan</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Inter:wght@300;400;500;600&family=Syne:wght@700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0c10; --surface: #111318; --surface2: #181c23;
+    --border: rgba(255,255,255,0.07); --border2: rgba(255,255,255,0.12);
+    --text: #e8eaf0; --muted: #7a8090; --faint: #3a3f4a;
+    --accent: #4fd1c5; --accent2: #7c3aed; --accent3: #f59e0b;
+    --red: #ef4444; --green: #22c55e; --blue: #3b82f6;
+    --mono: 'IBM Plex Mono', monospace; --sans: 'Inter', sans-serif; --display: 'Syne', sans-serif;
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: var(--sans); font-size: 15px; line-height: 1.7; min-height: 100vh; }
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--faint); border-radius: 2px; }
+
+  nav {
+    position: sticky; top: 0; z-index: 100; background: rgba(10,12,16,0.85);
+    backdrop-filter: blur(12px); border-bottom: 1px solid var(--border);
+    padding: 0 2rem; display: flex; align-items: center; justify-content: space-between; height: 56px;
+  }
+  .nav-brand { font-family: var(--mono); font-size: 12px; color: var(--accent); letter-spacing: 0.08em; }
+  .nav-links { display: flex; gap: 1.5rem; list-style: none; }
+  .nav-links a { font-size: 12px; color: var(--muted); text-decoration: none; letter-spacing: 0.04em; transition: color 0.2s; }
+  .nav-links a:hover { color: var(--text); }
+
+  .hero { padding: 5rem 2rem 4rem; max-width: 940px; margin: 0 auto; position: relative; }
+  .hero-eyebrow { font-family: var(--mono); font-size: 11px; color: var(--accent); letter-spacing: 0.15em; margin-bottom: 1.5rem; display: flex; align-items: center; gap: 10px; }
+  .hero-eyebrow::before { content: ''; display: block; width: 32px; height: 1px; background: var(--accent); }
+  .hero-title { font-family: var(--display); font-size: clamp(2.2rem, 5vw, 3.8rem); font-weight: 800; line-height: 1.08; letter-spacing: -0.02em; margin-bottom: 1.5rem; color: #fff; }
+  .hero-title .hl { background: linear-gradient(90deg, var(--accent), var(--blue)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+  .hero-sub { font-size: 16px; color: var(--muted); max-width: 660px; line-height: 1.75; margin-bottom: 2.5rem; }
+  .algo-chips { display: flex; gap: 8px; flex-wrap: wrap; }
+  .chip { font-family: var(--mono); font-size: 11px; padding: 5px 12px; border-radius: 20px; border: 1px solid; letter-spacing: 0.05em; }
+  .chip.cnn  { color: #7c3aed; border-color: rgba(124,58,237,0.35); background: rgba(124,58,237,0.08); }
+  .chip.lstm { color: #4fd1c5; border-color: rgba(79,209,197,0.35); background: rgba(79,209,197,0.08); }
+  .chip.nlp  { color: #3b82f6; border-color: rgba(59,130,246,0.35); background: rgba(59,130,246,0.08); }
+  .chip.fuse { color: #f59e0b; border-color: rgba(245,158,11,0.35); background: rgba(245,158,11,0.08); }
+
+  .stats-bar { background: var(--surface); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); padding: 2.5rem 2rem; }
+  .stats-inner { max-width: 940px; margin: 0 auto; display: grid; grid-template-columns: repeat(3, 1fr); gap: 0; }
+  .stat-block { padding: 0 2rem; border-right: 1px solid var(--border); }
+  .stat-block:first-child { padding-left: 0; }
+  .stat-block:last-child { border-right: none; }
+  .stat-val { font-family: var(--display); font-size: 2.4rem; font-weight: 800; line-height: 1; margin-bottom: 0.4rem; }
+  .stat-val.red { color: #ef4444; } .stat-val.amber { color: #f59e0b; } .stat-val.teal { color: #4fd1c5; }
+  .stat-label { font-size: 12px; color: var(--muted); line-height: 1.5; }
+  .stat-source { font-family: var(--mono); font-size: 10px; color: var(--faint); margin-top: 4px; }
+
+  .content { max-width: 940px; margin: 0 auto; padding: 4rem 2rem; }
+  .section-header { display: flex; align-items: center; gap: 12px; margin-bottom: 2rem; padding-bottom: 1rem; border-bottom: 1px solid var(--border); }
+  .section-tag { font-family: var(--mono); font-size: 10px; color: var(--accent); letter-spacing: 0.12em; text-transform: uppercase; }
+  .section-title { font-family: var(--display); font-size: 1.5rem; font-weight: 700; color: #fff; }
+  .lead { font-size: 14px; color: var(--muted); line-height: 1.8; margin-bottom: 2.5rem; max-width: 760px; }
+  .lead strong { color: var(--text); font-weight: 500; }
+
+  /* two-system split */
+  .split-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; background: var(--border); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; margin-bottom: 1rem; }
+  .split-card { background: var(--surface); padding: 1.5rem; }
+  .split-card.primary { background: linear-gradient(180deg, rgba(79,209,197,0.05), var(--surface)); }
+  .split-tag { font-family: var(--mono); font-size: 10px; letter-spacing: 0.1em; margin-bottom: 0.75rem; }
+  .split-card.primary .split-tag { color: var(--accent); }
+  .split-card.secondary .split-tag { color: var(--blue); }
+  .split-name { font-size: 15px; font-weight: 600; color: #fff; margin-bottom: 0.6rem; }
+  .split-body { font-size: 13px; color: var(--muted); line-height: 1.7; }
+  .split-body strong { color: var(--text); font-weight: 500; }
+  .wall-note { font-size: 12px; color: rgba(245,158,11,0.8); background: rgba(245,158,11,0.05); border: 1px solid rgba(245,158,11,0.2); border-radius: 8px; padding: 0.85rem 1.1rem; margin-bottom: 3rem; line-height: 1.6; }
+  .wall-note strong { color: var(--accent3); font-weight: 500; }
+
+  /* arch branches */
+  .arch-branches { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 1.5rem; }
+  .branch-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 1.25rem; position: relative; overflow: hidden; }
+  .branch-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px; }
+  .branch-card.cnn::before  { background: #7c3aed; }
+  .branch-card.lstm::before { background: #4fd1c5; }
+  .branch-card.nlp::before  { background: #3b82f6; }
+  .branch-label { font-family: var(--mono); font-size: 10px; letter-spacing: 0.1em; margin-bottom: 0.6rem; font-weight: 500; }
+  .branch-card.cnn  .branch-label { color: #7c3aed; }
+  .branch-card.lstm .branch-label { color: #4fd1c5; }
+  .branch-card.nlp  .branch-label { color: #3b82f6; }
+  .branch-name { font-size: 14px; font-weight: 600; color: #fff; margin-bottom: 0.5rem; }
+  .branch-input { font-size: 12px; color: var(--muted); margin-bottom: 0.75rem; line-height: 1.55; }
+  .branch-output { font-family: var(--mono); font-size: 11px; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 6px 10px; color: var(--faint); }
+  .branch-output span { color: var(--text); }
+
+  .fusion-box { background: var(--surface2); border: 1px solid var(--border2); border-radius: 12px; padding: 1.5rem; margin-bottom: 3rem; }
+  .fusion-label { font-family: var(--mono); font-size: 10px; color: var(--accent); letter-spacing: 0.1em; margin-bottom: 1rem; }
+  .fusion-flow { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .fnode { font-size: 12px; padding: 6px 12px; border-radius: 6px; border: 1px solid var(--border); background: var(--surface); color: var(--text); white-space: nowrap; }
+  .fnode.cnn  { border-color: rgba(124,58,237,0.4); color: #a78bfa; }
+  .fnode.lstm { border-color: rgba(79,209,197,0.4); color: #4fd1c5; }
+  .fnode.nlp  { border-color: rgba(59,130,246,0.4); color: #60a5fa; }
+  .fnode.concat{ border-color: rgba(255,255,255,0.2); color: #fff; font-weight: 500; background: rgba(255,255,255,0.04); }
+  .fnode.output{ border-color: rgba(34,197,94,0.4); color: #22c55e; background: rgba(34,197,94,0.06); }
+  .farrow { color: var(--faint); font-size: 16px; }
+
+  /* data table */
+  .data-table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 12px; margin-bottom: 1rem; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  thead th { background: var(--surface2); padding: 0.75rem 1rem; text-align: left; font-size: 11px; font-weight: 500; color: var(--muted); letter-spacing: 0.06em; border-bottom: 1px solid var(--border); }
+  tbody td { padding: 0.85rem 1rem; border-bottom: 1px solid var(--border); color: var(--text); vertical-align: top; line-height: 1.6; }
+  tbody tr:last-child td { border-bottom: none; }
+  tbody tr:hover td { background: rgba(255,255,255,0.02); }
+  .td-badge { display: inline-block; font-family: var(--mono); font-size: 10px; padding: 2px 7px; border-radius: 4px; font-weight: 500; white-space: nowrap; }
+  .td-badge.cnn  { background: rgba(124,58,237,0.12); color: #a78bfa; border: 1px solid rgba(124,58,237,0.25); }
+  .td-badge.lstm { background: rgba(79,209,197,0.1);  color: #4fd1c5; border: 1px solid rgba(79,209,197,0.25); }
+  .td-badge.nlp  { background: rgba(59,130,246,0.1);  color: #60a5fa; border: 1px solid rgba(59,130,246,0.25); }
+  .td-badge.ais  { background: rgba(34,197,94,0.1);   color: #22c55e; border: 1px solid rgba(34,197,94,0.25); }
+  .td-badge.real { background: rgba(34,197,94,0.1); color: #22c55e; border: 1px solid rgba(34,197,94,0.25); }
+  .td-badge.synth{ background: rgba(245,158,11,0.1); color: #f59e0b; border: 1px solid rgba(245,158,11,0.25); }
+  .dataset-name { font-weight: 500; color: #fff; display: block; margin-bottom: 2px; }
+  .dataset-link { font-family: var(--mono); font-size: 11px; color: #3b82f6; text-decoration: none; }
+  .dataset-link:hover { text-decoration: underline; }
+  .table-caption { font-size: 11px; color: var(--faint); font-family: var(--mono); margin-bottom: 3rem; }
+
+  /* repo cards */
+  .repo-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 1rem; }
+  .repo-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 1rem 1.25rem; }
+  .repo-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.4rem; }
+  .repo-name { font-family: var(--mono); font-size: 12px; color: #60a5fa; }
+  .repo-stars { font-family: var(--mono); font-size: 11px; color: var(--accent3); }
+  .repo-desc { font-size: 12px; color: var(--muted); line-height: 1.55; }
+  .repo-role { font-size: 11px; color: var(--text); margin-top: 0.5rem; }
+  .repo-role span { color: var(--accent); font-family: var(--mono); }
+  .verify-note { font-size: 12px; color: rgba(239,68,68,0.8); background: rgba(239,68,68,0.05); border: 1px solid rgba(239,68,68,0.2); border-radius: 8px; padding: 0.85rem 1.1rem; margin-bottom: 3rem; line-height: 1.6; }
+  .verify-note strong { color: var(--red); font-weight: 500; }
+
+  /* limitations */
+  .lim-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; background: var(--border); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; margin-bottom: 3rem; }
+  .lim-card { background: var(--surface); padding: 1.35rem; }
+  .lim-sev { display: inline-block; font-size: 10px; font-weight: 500; padding: 3px 8px; border-radius: 4px; margin-bottom: 0.6rem; font-family: var(--mono); letter-spacing: 0.05em; }
+  .lim-sev.critical { background: rgba(239,68,68,0.12); color: #ef4444; border: 1px solid rgba(239,68,68,0.25); }
+  .lim-sev.high { background: rgba(245,158,11,0.12); color: #f59e0b; border: 1px solid rgba(245,158,11,0.25); }
+  .lim-title { font-size: 13px; font-weight: 600; color: #fff; margin-bottom: 0.5rem; }
+  .lim-body { font-size: 12px; color: var(--muted); line-height: 1.65; }
+  .lim-body strong { color: var(--text); font-weight: 500; }
+  .lim-mit { font-size: 11px; color: var(--green); margin-top: 0.5rem; font-family: var(--mono); line-height: 1.5; }
+
+  /* references */
+  .ref-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 2rem; }
+  .ref-item { display: flex; gap: 10px; align-items: flex-start; padding: 0.75rem 1rem; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; }
+  .ref-num { font-family: var(--mono); font-size: 10px; color: var(--faint); margin-top: 2px; flex-shrink: 0; min-width: 24px; }
+  .ref-content { font-size: 12px; color: var(--muted); line-height: 1.6; }
+  .ref-content a { color: #3b82f6; text-decoration: none; }
+  .ref-content a:hover { text-decoration: underline; }
+  .ref-content strong { color: var(--text); font-weight: 500; }
+
+  /* workflow */
+  .flow-wrap { position: relative; margin-bottom: 3rem; }
+  .flow-stage { display: flex; gap: 16px; align-items: flex-start; padding: 1.1rem 0; border-bottom: 1px solid var(--border); }
+  .flow-stage:last-child { border-bottom: none; }
+  .flow-idx { font-family: var(--display); font-size: 1.4rem; font-weight: 800; color: var(--faint); min-width: 42px; line-height: 1; margin-top: 2px; }
+  .flow-main { flex: 1; }
+  .flow-name { font-size: 14px; font-weight: 600; color: #fff; margin-bottom: 0.35rem; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .flow-pill { font-family: var(--mono); font-size: 9px; letter-spacing: 0.08em; padding: 2px 7px; border-radius: 10px; border: 1px solid var(--border2); color: var(--muted); }
+  .flow-pill.ingest { color: var(--blue); border-color: rgba(59,130,246,0.3); }
+  .flow-pill.model  { color: var(--accent2); border-color: rgba(124,58,237,0.3); }
+  .flow-pill.fuse   { color: var(--accent3); border-color: rgba(245,158,11,0.3); }
+  .flow-pill.serve  { color: var(--green); border-color: rgba(34,197,94,0.3); }
+  .flow-desc { font-size: 12.5px; color: var(--muted); line-height: 1.65; }
+  .flow-desc code { font-family: var(--mono); font-size: 11px; color: var(--accent); background: rgba(79,209,197,0.06); padding: 1px 5px; border-radius: 3px; }
+
+  /* deliverables */
+  .deliv-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 1.5rem; }
+  .deliv-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 1.15rem 1.3rem; }
+  .deliv-head { display: flex; align-items: center; gap: 10px; margin-bottom: 0.5rem; }
+  .deliv-icon { font-size: 16px; }
+  .deliv-title { font-size: 13px; font-weight: 600; color: #fff; }
+  .deliv-desc { font-size: 12px; color: var(--muted); line-height: 1.6; }
+  .deliv-desc strong { color: var(--text); font-weight: 500; }
+
+  /* insights */
+  .insight-list { display: flex; flex-direction: column; gap: 10px; margin-bottom: 3rem; }
+  .insight-row { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 1rem 1.25rem; display: flex; gap: 14px; align-items: flex-start; }
+  .insight-q { font-family: var(--mono); font-size: 11px; color: var(--accent); min-width: 84px; margin-top: 2px; letter-spacing: 0.04em; }
+  .insight-a { font-size: 12.5px; color: var(--text); line-height: 1.6; }
+  .insight-a span { color: var(--muted); }
+
+  /* stack */
+  .stack-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 3rem; }
+  .stack-col { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 1.4rem; }
+  .stack-col-head { font-family: var(--mono); font-size: 11px; letter-spacing: 0.1em; margin-bottom: 1rem; padding-bottom: 0.6rem; border-bottom: 1px solid var(--border); }
+  .stack-col.front .stack-col-head { color: var(--accent); }
+  .stack-col.back  .stack-col-head { color: var(--accent2); }
+  .stack-item { display: flex; gap: 10px; padding: 0.5rem 0; font-size: 12.5px; color: var(--muted); line-height: 1.5; }
+  .stack-item b { color: var(--text); font-weight: 500; min-width: 108px; display: inline-block; }
+  .stack-item code { font-family: var(--mono); font-size: 11px; color: var(--accent); }
+
+  /* value */
+  .value-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; background: var(--border); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; margin-bottom: 3rem; }
+  .value-card { background: var(--surface); padding: 1.4rem; }
+  .value-tag { font-family: var(--mono); font-size: 10px; letter-spacing: 0.08em; margin-bottom: 0.7rem; color: var(--accent3); }
+  .value-card.gov .value-tag { color: var(--accent); }
+  .value-card.co  .value-tag { color: var(--blue); }
+  .value-name { font-size: 14px; font-weight: 600; color: #fff; margin-bottom: 0.5rem; }
+  .value-body { font-size: 12.5px; color: var(--muted); line-height: 1.65; }
+  .value-body strong { color: var(--text); font-weight: 500; }
+
+  /* ── DEMO WIDGET ── */
+  .demo-frame { border: 1px solid var(--border2); border-radius: 16px; overflow: hidden; margin-bottom: 1rem; background: var(--surface); box-shadow: 0 20px 60px rgba(0,0,0,0.4); }
+  .demo-topbar { display: flex; align-items: center; justify-content: space-between; padding: 0.85rem 1.25rem; background: var(--surface2); border-bottom: 1px solid var(--border); }
+  .demo-brand { font-family: var(--display); font-size: 13px; font-weight: 700; color: #fff; letter-spacing: -0.01em; }
+  .demo-brand span { color: var(--accent); }
+  .demo-live { display: flex; align-items: center; gap: 7px; font-family: var(--mono); font-size: 10px; color: var(--green); letter-spacing: 0.06em; }
+  .demo-live::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: var(--green); animation: pulse 1.6s infinite; }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.25; } }
+
+  .demo-body { display: grid; grid-template-columns: 1.15fr 1fr; gap: 0; }
+  .demo-left { padding: 1.4rem; border-right: 1px solid var(--border); }
+  .demo-right { padding: 1.4rem; }
+
+  .gauge-wrap { text-align: center; margin-bottom: 1.2rem; }
+  .gauge-label { font-family: var(--mono); font-size: 10px; color: var(--muted); letter-spacing: 0.1em; margin-bottom: 0.9rem; }
+  .gauge { position: relative; width: 180px; height: 96px; margin: 0 auto 0.5rem; }
+  .gauge-val { font-family: var(--display); font-size: 2.6rem; font-weight: 800; line-height: 1; }
+  .gauge-status { font-family: var(--mono); font-size: 11px; letter-spacing: 0.08em; margin-top: 0.3rem; }
+
+  .arm-bars { display: flex; flex-direction: column; gap: 0.7rem; margin-top: 1.3rem; }
+  .arm-bar-row { }
+  .arm-bar-top { display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 4px; }
+  .arm-bar-name { color: var(--text); }
+  .arm-bar-val { font-family: var(--mono); color: var(--muted); }
+  .arm-track { height: 6px; background: var(--bg); border-radius: 3px; overflow: hidden; }
+  .arm-fill { height: 100%; border-radius: 3px; transition: width 0.8s ease; }
+  .arm-fill.cnn  { background: linear-gradient(90deg, rgba(124,58,237,0.5), #7c3aed); }
+  .arm-fill.lstm { background: linear-gradient(90deg, rgba(79,209,197,0.5), #4fd1c5); }
+  .arm-fill.nlp  { background: linear-gradient(90deg, rgba(59,130,246,0.5), #3b82f6); }
+
+  .demo-maptitle { font-family: var(--mono); font-size: 10px; color: var(--muted); letter-spacing: 0.1em; margin-bottom: 0.8rem; display: flex; justify-content: space-between; align-items: center; }
+  .demo-map { position: relative; width: 100%; height: 190px; background: radial-gradient(ellipse at 60% 40%, #0d2436, #0a141f 70%); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+  .strait-label { position: absolute; font-family: var(--mono); font-size: 8px; color: rgba(255,255,255,0.35); letter-spacing: 0.05em; }
+  .vessel { position: absolute; width: 8px; height: 8px; border-radius: 50%; transform: translate(-50%,-50%); cursor: pointer; }
+  .vessel.ok   { background: #22c55e; box-shadow: 0 0 6px rgba(34,197,94,0.6); }
+  .vessel.warn { background: #f59e0b; box-shadow: 0 0 8px rgba(245,158,11,0.7); }
+  .vessel.dark { background: #ef4444; box-shadow: 0 0 10px rgba(239,68,68,0.8); animation: pulse 1.2s infinite; }
+  .vessel-tip { position: absolute; bottom: 12px; left: 50%; transform: translateX(-50%); background: #000; border: 1px solid var(--border2); border-radius: 5px; padding: 3px 7px; font-family: var(--mono); font-size: 8px; color: var(--text); white-space: nowrap; opacity: 0; pointer-events: none; transition: opacity 0.15s; z-index: 5; }
+  .vessel:hover .vessel-tip { opacity: 1; }
+  .zone-ring { position: absolute; border: 1px dashed rgba(245,158,11,0.4); border-radius: 50%; transform: translate(-50%,-50%); pointer-events: none; }
+
+  .alert-feed { margin-top: 1rem; }
+  .alert-feed-head { font-family: var(--mono); font-size: 10px; color: var(--muted); letter-spacing: 0.1em; margin-bottom: 0.6rem; }
+  .alert-row { display: flex; gap: 9px; align-items: flex-start; padding: 0.5rem 0; border-bottom: 1px solid var(--border); font-size: 11px; line-height: 1.4; }
+  .alert-row:last-child { border-bottom: none; }
+  .alert-dot { width: 6px; height: 6px; border-radius: 50%; margin-top: 5px; flex-shrink: 0; }
+  .alert-dot.red { background: #ef4444; } .alert-dot.amber { background: #f59e0b; } .alert-dot.blue { background: #3b82f6; }
+  .alert-time { font-family: var(--mono); color: var(--faint); font-size: 9px; }
+  .alert-text { color: var(--muted); } .alert-text b { color: var(--text); font-weight: 500; }
+
+  .demo-brief { padding: 1.25rem 1.4rem; border-top: 1px solid var(--border); background: linear-gradient(180deg, rgba(124,58,237,0.04), transparent); }
+  .brief-head { font-family: var(--mono); font-size: 10px; color: var(--accent2); letter-spacing: 0.1em; margin-bottom: 0.6rem; display: flex; align-items: center; gap: 8px; }
+  .brief-text { font-size: 12.5px; color: var(--text); line-height: 1.7; }
+  .brief-text b { color: #fff; font-weight: 600; }
+  .demo-controls { display: flex; gap: 8px; padding: 1rem 1.4rem; border-top: 1px solid var(--border); background: var(--surface2); flex-wrap: wrap; align-items: center; }
+  .demo-controls-label { font-family: var(--mono); font-size: 10px; color: var(--muted); margin-right: 4px; }
+  .scenario-btn { font-family: var(--mono); font-size: 11px; padding: 6px 13px; border-radius: 6px; border: 1px solid var(--border2); background: var(--surface); color: var(--muted); cursor: pointer; transition: all 0.2s; }
+  .scenario-btn:hover { color: var(--text); border-color: var(--faint); }
+  .scenario-btn.active { background: rgba(79,209,197,0.1); border-color: var(--accent); color: var(--accent); }
+  .demo-caption { font-size: 11px; color: var(--faint); font-family: var(--mono); margin-bottom: 3rem; line-height: 1.6; }
+
+  footer { border-top: 1px solid var(--border); padding: 2rem; text-align: center; font-family: var(--mono); font-size: 11px; color: var(--faint); letter-spacing: 0.06em; }
+
+  @media (max-width: 720px) {
+    .stats-inner { grid-template-columns: 1fr; }
+    .stat-block  { border-right: none; border-bottom: 1px solid var(--border); padding: 1rem 0; }
+    .stat-block:last-child { border-bottom: none; }
+    .split-grid, .arch-branches, .repo-grid, .lim-grid,
+    .deliv-grid, .stack-grid, .value-grid { grid-template-columns: 1fr; }
+    .demo-body { grid-template-columns: 1fr; }
+    .demo-left { border-right: none; border-bottom: 1px solid var(--border); }
+    nav .nav-links { display: none; }
+  }
+  @media print { body { background: #fff; color: #111; } nav { display: none; } }
+</style>
+</head>
+<body>
+
+<nav>
+  <span class="nav-brand">USE CASE 03 — DEEP LEARNING</span>
+  <ul class="nav-links">
+    <li><a href="#scope">Scope</a></li>
+    <li><a href="#workflow">Workflow</a></li>
+    <li><a href="#architecture">Architecture</a></li>
+    <li><a href="#deliverables">Deliverables</a></li>
+    <li><a href="#stack">Stack</a></li>
+    <li><a href="#value">UAE Value</a></li>
+    <li><a href="#demo">Demo</a></li>
+    <li><a href="#data">Data</a></li>
+  </ul>
+</nav>
+
+<section class="hero">
+  <div class="hero-eyebrow">EXECUTION PLAN · CNN + LSTM/VAE + TRANSFORMER · AIS</div>
+  <h1 class="hero-title">Hormuz Disruption Engine<br>&amp; <span class="hl">UAE Port Early-Warning</span></h1>
+  <p class="hero-sub">
+    A tri-arm deep-learning system that fuses SAR/optical satellite imagery, freight-and-oil
+    market anomalies, and geopolitical event text into a single chokepoint risk index for the
+    Strait of Hormuz and UAE ports — with a live per-vessel AIS safety layer riding on top.
+    Backtested against real disruption events; the vessel layer is an honest real-time demo, not a predictor.
+  </p>
+  <div class="algo-chips">
+    <span class="chip cnn">CNN — SAR/optical port congestion</span>
+    <span class="chip lstm">LSTM/VAE — market anomaly</span>
+    <span class="chip nlp">Transformer — GDELT geopolitics</span>
+    <span class="chip fuse">GBM — fusion + risk index</span>
+  </div>
+</section>
+
+<section class="stats-bar" id="scope">
+  <div class="stats-inner">
+    <div class="stat-block">
+      <div class="stat-val red">~20M bpd</div>
+      <div class="stat-label">Oil transiting the Strait of Hormuz daily — roughly a fifth of global consumption</div>
+      <div class="stat-source">U.S. EIA, chokepoint analysis</div>
+    </div>
+    <div class="stat-block">
+      <div class="stat-val amber">4</div>
+      <div class="stat-label">UAE ports in scope: Jebel Ali, Khalifa, Fujairah, Khor Fakkan</div>
+      <div class="stat-source">Fujairah is the tell — it sits outside the strait</div>
+    </div>
+    <div class="stat-block">
+      <div class="stat-val teal">~5</div>
+      <div class="stat-label">Real disruption events available as backtest labels (the scarcity problem)</div>
+      <div class="stat-source">2012 · 2019 ×2 · 2024–25 · 2026 window</div>
+    </div>
+  </div>
+</section>
+
+<section class="content">
+
+  <!-- SCOPE -->
+  <div class="section-header">
+    <span class="section-tag">// SCOPE DECISION</span>
+    <h2 class="section-title">Two systems sharing a screen, not one system</h2>
+  </div>
+  <p class="lead">
+    The build is a <strong>hybrid</strong>, but the two halves have different epistemic status and must be kept apart in code and in the writeup.
+    The disruption engine is the priority and carries all ML validity; the vessel-safety layer is a live monitoring demo that sits on top.
+    Conflating them would reintroduce the exact "dashboard over substance" failure mode this project exists to avoid.
+  </p>
+
+  <div class="split-grid">
+    <div class="split-card primary">
+      <div class="split-tag">PRIORITY · BACKTESTED</div>
+      <div class="split-name">Disruption early-warning engine</div>
+      <div class="split-body">
+        Answers <strong>"is Hormuz about to seize up — should a shipper reroute?"</strong> Port-level and macro.
+        Three DL arms → gradient-boosting fusion → chokepoint risk index → LLM agentic brief via NVIDIA NIM.
+        Validated against historical events with strict temporal splits. <strong>This is what the Day 5 gate tests.</strong>
+      </div>
+    </div>
+    <div class="split-card secondary">
+      <div class="split-tag">LAYER · LIVE DEMO</div>
+      <div class="split-name">Per-vessel safety alerting</div>
+      <div class="split-body">
+        Answers <strong>"what is this ship doing right now?"</strong> Live AIS geofenced to the strait + UAE approaches.
+        <strong>Rule-based, not ML:</strong> risk-zone entry, transponder-dark events, anomalous loitering.
+        Not backtestable on a one-week timeline — scoped explicitly as real-time monitoring, never as a validated forecast.
+      </div>
+    </div>
+  </div>
+  <div class="wall-note">
+    <strong>The one clean bridge:</strong> the disruption risk index modulates the vessel-alert threshold — high macro
+    risk tightens per-vessel sensitivity. That is the only coupling allowed between the two systems. Everything else stays walled off.
+  </div>
+
+  <!-- WORKFLOW -->
+  <div class="section-header" id="workflow">
+    <span class="section-tag">// WORKFLOW</span>
+    <h2 class="section-title">How data becomes a warning — end to end</h2>
+  </div>
+  <p class="lead">
+    The pipeline moves left to right: raw sources are ingested and normalised, each modality is scored by its own model,
+    the three scores fuse into one index, and the index drives both the dashboard and the agentic brief.
+    <strong>The vessel-safety layer runs in parallel</strong> off live AIS and only reads the risk index to set its alert sensitivity.
+  </p>
+
+  <div class="flow-wrap">
+    <div class="flow-stage">
+      <div class="flow-idx">01</div>
+      <div class="flow-main">
+        <div class="flow-name">Ingest &amp; normalise <span class="flow-pill ingest">SOURCES</span></div>
+        <div class="flow-desc">Scheduled pulls from Copernicus (SAR + optical tiles over the four ports), EIA (Brent + tanker series), GDELT/ACLED (geofenced Gulf events), and a live aisstream socket. Each source lands in a raw store, then a normaliser aligns timestamps and geographies onto a common grid.</div>
+      </div>
+    </div>
+    <div class="flow-stage">
+      <div class="flow-idx">02</div>
+      <div class="flow-main">
+        <div class="flow-name">Score per modality <span class="flow-pill model">3 ARMS</span></div>
+        <div class="flow-desc">CNN turns satellite tiles into a per-port congestion index. VAE/TFT turns market series into an anomaly score. The transformer turns event text into a geopolitical tension score. Each arm runs as its own containerised service so they scale and fail independently.</div>
+      </div>
+    </div>
+    <div class="flow-stage">
+      <div class="flow-idx">03</div>
+      <div class="flow-main">
+        <div class="flow-name">Fuse into one index <span class="flow-pill fuse">GBM</span></div>
+        <div class="flow-desc">A gradient-boosting model combines the three arm outputs into a single <code>chokepoint risk index (0–100)</code>, trained only on past data via <code>TimeSeriesSplit</code>. The CI leakage test fails the build if any future information reaches the fusion layer.</div>
+      </div>
+    </div>
+    <div class="flow-stage">
+      <div class="flow-idx">04</div>
+      <div class="flow-main">
+        <div class="flow-name">Serve, brief &amp; alert <span class="flow-pill serve">OUTPUT</span></div>
+        <div class="flow-desc">The index and per-arm breakdown stream to the dashboard. An LLM agent (NVIDIA NIM) writes a plain-language brief explaining <em>why</em> the index moved. In parallel, the vessel layer raises rule-based AIS alerts, with its threshold tightened when the index is high.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ARCHITECTURE -->
+  <div class="section-header" id="architecture">
+    <span class="section-tag">// MODEL DESIGN</span>
+    <h2 class="section-title">Tri-arm architecture — each arm a distinct modality</h2>
+  </div>
+
+  <div class="arch-branches">
+    <div class="branch-card cnn">
+      <div class="branch-label">ARM A · CNN</div>
+      <div class="branch-name">Port congestion detector</div>
+      <div class="branch-input">
+        Sentinel-1 <strong>SAR</strong> for all-weather vessel detection (works through Gulf haze and at night — this is where detection happens);
+        Sentinel-2 <strong>optical</strong> for berth-occupancy context on clear days. Per-port congestion index.
+      </div>
+      <div class="branch-output">output → <span>congestion_index [per port]</span></div>
+    </div>
+    <div class="branch-card lstm">
+      <div class="branch-label">ARM B · TFT/LSTM + VAE</div>
+      <div class="branch-name">Market anomaly detector</div>
+      <div class="branch-input">
+        Brent (EIA), VLCC/tanker spot rates, Baltic proxies. VAE flags reconstruction-error anomalies; TFT/LSTM forecasts.
+        <strong>Fires first</strong> — markets price tension before ships pile up.
+      </div>
+      <div class="branch-output">output → <span>market_anomaly_score</span></div>
+    </div>
+    <div class="branch-card nlp">
+      <div class="branch-label">ARM C · TRANSFORMER</div>
+      <div class="branch-name">Geopolitical signal extractor</div>
+      <div class="branch-input">
+        GDELT 2.0 (15-min cadence, event + tone, geofenced to the Gulf) plus ACLED for cleaner conflict labels.
+        Extracts escalation signal from event text.
+      </div>
+      <div class="branch-output">output → <span>geopolitical_tension_score</span></div>
+    </div>
+  </div>
+
+  <div class="fusion-box">
+    <div class="fusion-label">GRADIENT-BOOSTING FUSION → RISK INDEX → AGENTIC BRIEF</div>
+    <div class="fusion-flow">
+      <div class="fnode cnn">congestion</div>
+      <div class="farrow">+</div>
+      <div class="fnode lstm">market anomaly</div>
+      <div class="farrow">+</div>
+      <div class="fnode nlp">geo tension</div>
+      <div class="farrow">→</div>
+      <div class="fnode concat">GBM fusion</div>
+      <div class="farrow">→</div>
+      <div class="fnode concat">chokepoint risk index</div>
+      <div class="farrow">→</div>
+      <div class="fnode output">LLM brief (NVIDIA NIM)</div>
+    </div>
+  </div>
+
+  <!-- DELIVERABLES -->
+  <div class="section-header" id="deliverables">
+    <span class="section-tag">// DELIVERABLES</span>
+    <h2 class="section-title">What the dashboard actually shows</h2>
+  </div>
+  <p class="lead">
+    The dashboard has one job: turn the fused signal into decisions a shipping or policy team can act on in seconds.
+    Six focused surfaces, nothing decorative.
+  </p>
+
+  <div class="deliv-grid">
+    <div class="deliv-card">
+      <div class="deliv-head"><span class="deliv-icon">🎯</span><span class="deliv-title">Chokepoint risk index</span></div>
+      <div class="deliv-desc">The headline number, <strong>0–100</strong>, updated as new data lands, with a 30-day trend and the threshold bands (watch / elevated / critical) marked.</div>
+    </div>
+    <div class="deliv-card">
+      <div class="deliv-head"><span class="deliv-icon">🧩</span><span class="deliv-title">Per-arm contribution</span></div>
+      <div class="deliv-desc">Which arm is driving the index right now — <strong>congestion, market, or geopolitics</strong> — so a user can see whether the signal is physical, financial, or political.</div>
+    </div>
+    <div class="deliv-card">
+      <div class="deliv-head"><span class="deliv-icon">🗺️</span><span class="deliv-title">Live vessel map</span></div>
+      <div class="deliv-desc">Real-time AIS over the strait and UAE approaches, with <strong>risk-zone rings</strong> and colour-coded vessels (normal, warning, transponder-dark).</div>
+    </div>
+    <div class="deliv-card">
+      <div class="deliv-head"><span class="deliv-icon">⚓</span><span class="deliv-title">Port congestion panel</span></div>
+      <div class="deliv-desc">Per-port berth occupancy and anchorage counts for <strong>Jebel Ali, Khalifa, Fujairah, Khor Fakkan</strong> — Fujairah highlighted as the outside-the-strait tell.</div>
+    </div>
+    <div class="deliv-card">
+      <div class="deliv-head"><span class="deliv-icon">🚨</span><span class="deliv-title">Alert feed</span></div>
+      <div class="deliv-desc">Rolling log of triggered events — transponder-dark, loitering, risk-zone entry, index threshold crossings — each timestamped and routable.</div>
+    </div>
+    <div class="deliv-card">
+      <div class="deliv-head"><span class="deliv-icon">📝</span><span class="deliv-title">Agentic brief</span></div>
+      <div class="deliv-desc">A plain-language paragraph, generated per update, that <strong>explains why the index moved</strong> and names the recommended posture. Not just a number — a reason.</div>
+    </div>
+  </div>
+
+  <!-- INSIGHTS -->
+  <div class="section-header">
+    <span class="section-tag">// INSIGHTS</span>
+    <h2 class="section-title">The questions it answers</h2>
+  </div>
+  <p class="lead">Every surface exists to answer a concrete operational question. These are the ones the dashboard is built to resolve at a glance.</p>
+
+  <div class="insight-list">
+    <div class="insight-row"><div class="insight-q">RISK NOW</div><div class="insight-a">Is Hormuz stable, watch, or critical today — and <span>how fast is that changing?</span></div></div>
+    <div class="insight-row"><div class="insight-q">WHY</div><div class="insight-a">Is the signal driven by ships piling up, oil markets pricing fear, or escalating rhetoric — <span>and which came first?</span></div></div>
+    <div class="insight-row"><div class="insight-q">REROUTE?</div><div class="insight-a">Should cargo divert now, and is Fujairah (outside the strait) already absorbing rerouted traffic — <span>an early physical confirmation?</span></div></div>
+    <div class="insight-row"><div class="insight-q">WHICH SHIPS</div><div class="insight-a">Which specific vessels are in a risk zone, loitering, or have gone dark — <span>the ones a duty officer should watch right now?</span></div></div>
+    <div class="insight-row"><div class="insight-q">LEAD TIME</div><div class="insight-a">How far ahead of the last comparable event did the index rise — <span>the honest measure of how much warning it buys?</span></div></div>
+  </div>
+
+  <!-- STACK -->
+  <div class="section-header" id="stack">
+    <span class="section-tag">// REQUIREMENTS</span>
+    <h2 class="section-title">Frontend &amp; backend</h2>
+  </div>
+
+  <div class="stack-grid">
+    <div class="stack-col front">
+      <div class="stack-col-head">FRONTEND</div>
+      <div class="stack-item"><b>Framework</b> React dashboard (or Taipy for the fast BI build), component-per-surface</div>
+      <div class="stack-item"><b>Map</b> <code>Leaflet</code> / <code>MapLibre</code> for the live AIS layer + risk-zone geofences</div>
+      <div class="stack-item"><b>Charts</b> <code>Recharts</code> / <code>D3</code> for the risk index trend and per-arm bars</div>
+      <div class="stack-item"><b>Realtime</b> WebSocket client for live vessel + index push</div>
+      <div class="stack-item"><b>State</b> Lightweight store; polling fallback where sockets drop</div>
+      <div class="stack-item"><b>Deliverable</b> Self-contained, dark-themed, responsive to mobile</div>
+    </div>
+    <div class="stack-col back">
+      <div class="stack-col-head">BACKEND</div>
+      <div class="stack-item"><b>API</b> <code>FastAPI</code> — serves index, arm scores, vessel state, brief</div>
+      <div class="stack-item"><b>Models</b> Keras/TF (CNN, VAE/TFT), HF transformer, GBM fusion — each its own service</div>
+      <div class="stack-item"><b>Ingestion</b> Scheduled workers: Copernicus, EIA, GDELT/ACLED; aisstream socket consumer</div>
+      <div class="stack-item"><b>Store</b> Time-series DB for signals; object store for raster tiles</div>
+      <div class="stack-item"><b>Agent</b> <code>NVIDIA NIM</code> + MCP server for the brief layer</div>
+      <div class="stack-item"><b>Infra</b> Docker <code>compose</code> (MVP on one EC2) → ECS/Fargate at scale; CI with leakage test</div>
+    </div>
+  </div>
+
+  <!-- UAE VALUE -->
+  <div class="section-header" id="value">
+    <span class="section-tag">// STAKEHOLDER VALUE</span>
+    <h2 class="section-title">Why it matters to UAE companies &amp; government</h2>
+  </div>
+  <p class="lead">
+    The UAE sits directly on the world's most critical oil chokepoint. Roughly a fifth of global oil moves past its coastline,
+    and Fujairah is one of the planet's largest bunkering hubs. Early warning here is not academic — it is operational and fiscal.
+  </p>
+
+  <div class="value-grid">
+    <div class="value-card gov">
+      <div class="value-tag">GOVERNMENT / REGULATOR</div>
+      <div class="value-name">Situational awareness &amp; contingency lead time</div>
+      <div class="value-body">A single fused picture across imagery, markets, and events gives maritime and energy authorities <strong>earlier, evidence-backed warning</strong> to pre-position resources, coordinate with UKMTO, and brief decision-makers — instead of reacting to headlines. The agentic brief turns model output into something a policy team can circulate immediately.</div>
+    </div>
+    <div class="value-card co">
+      <div class="value-tag">SHIPPING / ENERGY / INSURANCE</div>
+      <div class="value-name">Reroute, hedge, and price risk on time</div>
+      <div class="value-body">For carriers and traders, hours of lead time on a Hormuz disruption is money: <strong>reroute decisions, war-risk premium timing, and fuel hedging</strong> all hinge on it. Fujairah congestion as an early physical confirmation lets logistics teams act before rates spike. Insurers get an independent signal to price Gulf transit risk.</div>
+    </div>
+    <div class="value-card co">
+      <div class="value-tag">PORTS / TERMINALS</div>
+      <div class="value-name">Anticipate surge and diverted traffic</div>
+      <div class="value-body">When traffic reroutes around the strait, UAE ports outside it absorb the surge. Advance signal helps terminals <strong>plan berth allocation and anchorage capacity</strong> before vessels arrive, rather than after.</div>
+    </div>
+    <div class="value-card gov">
+      <div class="value-tag">STRATEGIC</div>
+      <div class="value-name">Sovereign-relevant, built on open data</div>
+      <div class="value-body">Because it runs on public satellite, market, and event data, the system is <strong>independent of any single commercial feed</strong> and can be operated in-country — a meaningful property for infrastructure this close to national energy security.</div>
+    </div>
+  </div>
+
+  <!-- DEMO -->
+  <div class="section-header" id="demo">
+    <span class="section-tag">// DEMO</span>
+    <h2 class="section-title">Basic working mockup</h2>
+  </div>
+  <p class="lead">
+    A functional preview of the dashboard's core surfaces. <strong>The data here is synthetic and illustrative</strong> — it shows how the
+    pieces behave and update, not real current conditions. Switch scenarios to see the index, arm breakdown, vessel map, alerts, and brief respond together.
+  </p>
+
+  <div class="demo-frame">
+    <div class="demo-topbar">
+      <div class="demo-brand">HORMUZ<span>·</span>ENGINE</div>
+      <div class="demo-live">LIVE · DEMO DATA</div>
+    </div>
+    <div class="demo-body">
+      <div class="demo-left">
+        <div class="gauge-wrap">
+          <div class="gauge-label">CHOKEPOINT RISK INDEX</div>
+          <div class="gauge">
+            <svg viewBox="0 0 180 96" width="180" height="96">
+              <path d="M 12 90 A 78 78 0 0 1 168 90" fill="none" stroke="#181c23" stroke-width="10" stroke-linecap="round"/>
+              <path id="gaugeArc" d="M 12 90 A 78 78 0 0 1 168 90" fill="none" stroke="#f59e0b" stroke-width="10" stroke-linecap="round" stroke-dasharray="245" stroke-dashoffset="110" style="transition:stroke-dashoffset 0.8s ease, stroke 0.8s ease"/>
+            </svg>
+            <div style="position:absolute;top:38px;left:0;right:0;">
+              <div class="gauge-val" id="gaugeVal" style="color:#f59e0b">54</div>
+            </div>
+          </div>
+          <div class="gauge-status" id="gaugeStatus" style="color:#f59e0b">● ELEVATED</div>
+        </div>
+
+        <div class="arm-bars">
+          <div class="arm-bar-row">
+            <div class="arm-bar-top"><span class="arm-bar-name">CNN · port congestion</span><span class="arm-bar-val" id="v-cnn">48</span></div>
+            <div class="arm-track"><div class="arm-fill cnn" id="f-cnn" style="width:48%"></div></div>
+          </div>
+          <div class="arm-bar-row">
+            <div class="arm-bar-top"><span class="arm-bar-name">LSTM/VAE · market anomaly</span><span class="arm-bar-val" id="v-lstm">61</span></div>
+            <div class="arm-track"><div class="arm-fill lstm" id="f-lstm" style="width:61%"></div></div>
+          </div>
+          <div class="arm-bar-row">
+            <div class="arm-bar-top"><span class="arm-bar-name">Transformer · geopolitics</span><span class="arm-bar-val" id="v-nlp">52</span></div>
+            <div class="arm-track"><div class="arm-fill nlp" id="f-nlp" style="width:52%"></div></div>
+          </div>
+        </div>
+
+        <div class="alert-feed">
+          <div class="alert-feed-head">ALERT FEED</div>
+          <div id="alertList"></div>
+        </div>
+      </div>
+
+      <div class="demo-right">
+        <div class="demo-maptitle"><span>LIVE VESSEL MAP · STRAIT OF HORMUZ</span><span id="vesselCount" style="color:var(--muted)">— vessels</span></div>
+        <div class="demo-map" id="demoMap">
+          <div class="strait-label" style="top:8px;left:10px;">IRAN</div>
+          <div class="strait-label" style="bottom:8px;left:10px;">UAE · FUJAIRAH</div>
+          <div class="strait-label" style="top:46%;right:10px;">GULF OF OMAN</div>
+          <div class="zone-ring" style="width:70px;height:70px;top:50%;left:44%;"></div>
+        </div>
+        <div class="demo-maptitle" style="margin-top:1rem;"><span>PORT CONGESTION</span></div>
+        <div class="arm-bars" style="margin-top:0.4rem;">
+          <div class="arm-bar-row"><div class="arm-bar-top"><span class="arm-bar-name">Fujairah</span><span class="arm-bar-val" id="p-fuj">high</span></div><div class="arm-track"><div class="arm-fill cnn" id="pf-fuj" style="width:72%"></div></div></div>
+          <div class="arm-bar-row"><div class="arm-bar-top"><span class="arm-bar-name">Jebel Ali</span><span class="arm-bar-val" id="p-jeb">normal</span></div><div class="arm-track"><div class="arm-fill lstm" id="pf-jeb" style="width:40%"></div></div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="demo-brief">
+      <div class="brief-head">🤖 AGENTIC BRIEF · NVIDIA NIM</div>
+      <div class="brief-text" id="briefText">
+        Risk index at <b>54 (elevated)</b>, driven primarily by the <b>market arm</b>: tanker spot rates and Brent volatility are rising ahead of any physical congestion. Satellite congestion remains moderate, but Fujairah anchorage is filling — an early sign of precautionary rerouting. Recommended posture: <b>monitor closely; pre-stage contingency routing</b>.
+      </div>
+    </div>
+
+    <div class="demo-controls">
+      <span class="demo-controls-label">SCENARIO:</span>
+      <button class="scenario-btn active" data-s="calm">Calm</button>
+      <button class="scenario-btn" data-s="elevated">Elevated</button>
+      <button class="scenario-btn" data-s="crisis">Crisis</button>
+    </div>
+  </div>
+  <p class="demo-caption">
+    // Illustrative synthetic data. In production these surfaces bind to the live pipeline: Copernicus imagery, aisstream AIS,
+    EIA market series, and GDELT events. The brief is generated by the agent, not hardcoded.
+  </p>
+
+  <!-- DATA -->
+  <div class="section-header" id="data">
+    <span class="section-tag">// DATA SOURCES</span>
+    <h2 class="section-title">Verified access points — real where it counts</h2>
+  </div>
+  <p class="lead">
+    Every source below was confirmed to exist. Raw data sits behind free-tier APIs (Copernicus, aisstream, EIA, GDELT) that
+    require a key you register for. <strong>Real data drives the backtest; synthetic fills only the sparse disruption labels
+    and live-window gaps — and is tagged, never silently mixed into the Day 5 gate.</strong>
+  </p>
+
+  <div class="data-table-wrap">
+    <table>
+      <thead>
+        <tr><th>Arm</th><th>Source</th><th>What it provides</th><th>Access</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><span class="td-badge cnn">CNN</span></td>
+          <td><span class="dataset-name">Copernicus — Sentinel-1 SAR + Sentinel-2 optical</span>All-weather detection + optical context</td>
+          <td>Free API. SAR sees through cloud/haze/night (detection); optical gives berth occupancy (context). Cover Jebel Ali, Khalifa, Fujairah, Khor Fakkan.</td>
+          <td><a class="dataset-link" href="https://dataspace.copernicus.eu" target="_blank">dataspace.copernicus.eu</a></td>
+        </tr>
+        <tr>
+          <td><span class="td-badge cnn">CNN</span></td>
+          <td><span class="dataset-name">xView3 — dark-vessel SAR dataset</span>Labelled Sentinel-1 ship detections</td>
+          <td>Public challenge dataset for SAR vessel detection — pretraining and labels for the CNN arm.</td>
+          <td><a class="dataset-link" href="https://iuu.xview.us" target="_blank">iuu.xview.us</a></td>
+        </tr>
+        <tr>
+          <td><span class="td-badge ais">AIS</span></td>
+          <td><span class="dataset-name">aisstream.io — live AIS WebSocket</span>Real-time vessel positions</td>
+          <td>Free tier. Geofence to the strait + UAE approaches. Feeds the vessel-safety layer. Transponder-dark events are themselves a signal.</td>
+          <td><a class="dataset-link" href="https://aisstream.io" target="_blank">aisstream.io</a></td>
+        </tr>
+        <tr>
+          <td><span class="td-badge ais">AIS</span></td>
+          <td><span class="dataset-name">NOAA Marine Cadastre + Global Fishing Watch</span>Historical AIS for method dev</td>
+          <td>Free historical AIS (Marine Cadastre) and free global research AIS (GFW API) — for backtest and ground-truthing congestion.</td>
+          <td><a class="dataset-link" href="https://marinecadastre.gov/ais" target="_blank">marinecadastre.gov/ais</a> · <a class="dataset-link" href="https://globalfishingwatch.org" target="_blank">globalfishingwatch.org</a></td>
+        </tr>
+        <tr>
+          <td><span class="td-badge lstm">LSTM</span></td>
+          <td><span class="dataset-name">U.S. EIA Open Data — Brent &amp; oil series</span>Cleanest Hormuz macro signal</td>
+          <td>Free API. Brent, crude flows, Hormuz chokepoint stats. ~20M bpd transits the strait, so oil price is the sharpest single macro proxy.</td>
+          <td><a class="dataset-link" href="https://www.eia.gov/opendata" target="_blank">eia.gov/opendata</a></td>
+        </tr>
+        <tr>
+          <td><span class="td-badge nlp">NLP</span></td>
+          <td><span class="dataset-name">GDELT 2.0 — events + tone</span>15-min global event stream</td>
+          <td>Free, via BigQuery or Python clients. Geofence to the Gulf; extract escalation tone. The freshest, highest-cadence geopolitical signal.</td>
+          <td><a class="dataset-link" href="https://www.gdeltproject.org" target="_blank">gdeltproject.org</a></td>
+        </tr>
+        <tr>
+          <td><span class="td-badge nlp">NLP</span></td>
+          <td><span class="dataset-name">ACLED — conflict events</span>Cleaner labelled conflict data</td>
+          <td>Academic-free. Higher-precision conflict labels than GDELT — use to anchor and de-noise the NLP arm.</td>
+          <td><a class="dataset-link" href="https://acleddata.com" target="_blank">acleddata.com</a></td>
+        </tr>
+        <tr>
+          <td><span class="td-badge real">GROUND TRUTH</span></td>
+          <td><span class="dataset-name">UKMTO + port authority advisories</span>Real disruption dates</td>
+          <td>UKMTO is the Gulf's real-world maritime incident reporting body. DP World, Abu Dhabi Ports, Port of Fujairah advisories pin exact event dates for labels.</td>
+          <td><a class="dataset-link" href="https://www.ukmto.org" target="_blank">ukmto.org</a></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="table-caption">// Bash environment could reach GitHub only; the APIs above were confirmed by ecosystem + documentation, and their client libraries verified live (see Prior Art). Register free keys to pull raw data.</p>
+
+  <!-- PRIOR ART / REPOS -->
+  <div class="section-header" id="repos">
+    <span class="section-tag">// PRIOR ART</span>
+    <h2 class="section-title">Verified public repos — reference, not dependency</h2>
+  </div>
+  <p class="lead">
+    Confirmed live via the GitHub search API. The high-star repos are the credible backbones for each arm.
+    The Hormuz-specific projects prove the concept is grounded in what others are actively building — but they're low-star, so treat as prior art to read, not as dependencies.
+  </p>
+
+  <div class="repo-grid">
+    <div class="repo-card">
+      <div class="repo-top"><span class="repo-name">allenai/sar_vessel_detect</span><span class="repo-stars">★ 13</span></div>
+      <div class="repo-desc">Sentinel-1 vessel detection model from the xView3 challenge — Allen AI.</div>
+      <div class="repo-role"><span>ARM A backbone</span> — SAR ship detection</div>
+    </div>
+    <div class="repo-card">
+      <div class="repo-top"><span class="repo-name">sansastra/Anomaly-Detection</span><span class="repo-stars">★ 36</span></div>
+      <div class="repo-desc">Detects AIS on-off switching anomalies and unusual turn deviation.</div>
+      <div class="repo-role"><span>Vessel layer</span> — transponder-dark logic, prebuilt</div>
+    </div>
+    <div class="repo-card">
+      <div class="repo-top"><span class="repo-name">alex9smith/gdelt-doc-api</span><span class="repo-stars">★ 225</span></div>
+      <div class="repo-desc">Python client for the GDELT 2.0 Doc API.</div>
+      <div class="repo-role"><span>ARM C</span> — GDELT ingestion</div>
+    </div>
+    <div class="repo-card">
+      <div class="repo-top"><span class="repo-name">linwoodc3/gdeltPyR</span><span class="repo-stars">★ 254</span></div>
+      <div class="repo-desc">Framework to retrieve GDELT event/tone data in Python.</div>
+      <div class="repo-role"><span>ARM C alt</span> — event + tone tables</div>
+    </div>
+    <div class="repo-card">
+      <div class="repo-top"><span class="repo-name">sentinel-hub/sentinelhub-py</span><span class="repo-stars">★ 906</span></div>
+      <div class="repo-desc">Official client to download/process Sentinel imagery in Python.</div>
+      <div class="repo-role"><span>ARM A</span> — imagery access</div>
+    </div>
+    <div class="repo-card">
+      <div class="repo-top"><span class="repo-name">MissionSquad/mcp-gdelt</span><span class="repo-stars">★ 2</span></div>
+      <div class="repo-desc">Model Context Protocol server for the GDELT DOC 2.0 API.</div>
+      <div class="repo-role"><span>Agentic layer</span> — fits NVIDIA NIM / MCP brief</div>
+    </div>
+    <div class="repo-card">
+      <div class="repo-top"><span class="repo-name">kelu124/OrmuzOsint</span><span class="repo-stars">★ 2</span></div>
+      <div class="repo-desc">Sentinel-1 SAR + AIS fusion toolkit for dark-vessel detection over the Strait of Hormuz.</div>
+      <div class="repo-role"><span>Prior art</span> — near-exact concept match</div>
+    </div>
+    <div class="repo-card">
+      <div class="repo-top"><span class="repo-name">KaiErikNiermann/hormuz-crossing-tracker</span><span class="repo-stars">★ 2</span></div>
+      <div class="repo-desc">Vessel passage tracker for the strait, combining GFW satellite data with AIS.</div>
+      <div class="repo-role"><span>Prior art</span> — crossing-detection reference</div>
+    </div>
+  </div>
+  <div class="verify-note">
+    <strong>Verify before trust:</strong> repo existence and metadata were confirmed, but the low-star Hormuz repos' internals were not
+    inspectable from this environment. Clone and check whether they are working code or aspirational READMEs before depending on any of them.
+    That verify-before-trust step is the project's own ethic applied to itself.
+  </div>
+
+  <!-- LIMITATIONS -->
+  <div class="section-header" id="limits">
+    <span class="section-tag">// HONEST LIMITATIONS</span>
+    <h2 class="section-title">Named failure modes with mitigations</h2>
+  </div>
+
+  <div class="lim-grid">
+    <div class="lim-card">
+      <span class="lim-sev critical">CRITICAL</span>
+      <div class="lim-title">Label scarcity — ~5 real disruption events</div>
+      <div class="lim-body">A handful of true events (2012, 2019 ×2, 2024–25, 2026 window) cannot support conventional supervised training. <strong>The engine is an anomaly/early-warning system, not a classifier</strong> with statistically robust event odds.</div>
+      <div class="lim-mit">→ Frame as anomaly detection; report per-event behaviour, not a headline accuracy number.</div>
+    </div>
+    <div class="lim-card">
+      <span class="lim-sev critical">CRITICAL</span>
+      <div class="lim-title">Backtest leakage risk</div>
+      <div class="lim-body">With so few events, it is trivially easy to let future information bleed into training and get a flattering backtest that means nothing.</div>
+      <div class="lim-mit">→ <code style="font-family:var(--mono);color:var(--green)">TimeSeriesSplit</code> everywhere; CI leakage test fails the build; synthetic data tagged and barred from the gate.</div>
+    </div>
+    <div class="lim-card">
+      <span class="lim-sev high">HIGH</span>
+      <div class="lim-title">Vessel layer is not a predictor</div>
+      <div class="lim-body">The per-vessel safety alerts are live rule-based monitoring on real-time AIS. <strong>They are not backtested and make no forecast claim.</strong></div>
+      <div class="lim-mit">→ Scoped and labelled as a monitoring demo throughout; walled off from the ML validity of the engine.</div>
+    </div>
+    <div class="lim-card">
+      <span class="lim-sev high">HIGH</span>
+      <div class="lim-title">Container OOM on rasters + GDELT noise</div>
+      <div class="lim-body">Full Sentinel scenes blow container memory; GDELT is high-volume and noisy, with false geopolitical signal.</div>
+      <div class="lim-mit">→ Tile and stream rasters; de-noise GDELT against ACLED; concept-drift monitoring on all arms.</div>
+    </div>
+  </div>
+
+  <!-- REFERENCES -->
+  <div class="section-header" id="references">
+    <span class="section-tag">// SOURCES</span>
+    <h2 class="section-title">Verified access points &amp; repos</h2>
+  </div>
+
+  <div class="ref-list">
+    <div class="ref-item"><div class="ref-num">[1]</div><div class="ref-content"><strong>Copernicus Data Space Ecosystem</strong> — Sentinel-1 SAR + Sentinel-2 optical, free API<br><a href="https://dataspace.copernicus.eu" target="_blank">dataspace.copernicus.eu</a></div></div>
+    <div class="ref-item"><div class="ref-num">[2]</div><div class="ref-content"><strong>Sentinel Hub Python client</strong> — official imagery access (★906)<br><a href="https://github.com/sentinel-hub/sentinelhub-py" target="_blank">github.com/sentinel-hub/sentinelhub-py</a></div></div>
+    <div class="ref-item"><div class="ref-num">[3]</div><div class="ref-content"><strong>xView3 dark-vessel SAR dataset</strong> — labelled Sentinel-1 ship detection<br><a href="https://iuu.xview.us" target="_blank">iuu.xview.us</a></div></div>
+    <div class="ref-item"><div class="ref-num">[4]</div><div class="ref-content"><strong>allenai/sar_vessel_detect</strong> — Sentinel-1 detection model from xView3 (★13)<br><a href="https://github.com/allenai/sar_vessel_detect" target="_blank">github.com/allenai/sar_vessel_detect</a></div></div>
+    <div class="ref-item"><div class="ref-num">[5]</div><div class="ref-content"><strong>aisstream.io</strong> — live AIS WebSocket, free tier<br><a href="https://aisstream.io" target="_blank">aisstream.io</a></div></div>
+    <div class="ref-item"><div class="ref-num">[6]</div><div class="ref-content"><strong>NOAA Marine Cadastre</strong> — historical AIS, free<br><a href="https://marinecadastre.gov/ais" target="_blank">marinecadastre.gov/ais</a></div></div>
+    <div class="ref-item"><div class="ref-num">[7]</div><div class="ref-content"><strong>Global Fishing Watch API</strong> — free global research AIS<br><a href="https://globalfishingwatch.org" target="_blank">globalfishingwatch.org</a></div></div>
+    <div class="ref-item"><div class="ref-num">[8]</div><div class="ref-content"><strong>sansastra/Anomaly-Detection</strong> — AIS on-off switching + turn-deviation anomalies (★36)<br><a href="https://github.com/sansastra/Anomaly-Detection" target="_blank">github.com/sansastra/Anomaly-Detection</a></div></div>
+    <div class="ref-item"><div class="ref-num">[9]</div><div class="ref-content"><strong>U.S. EIA Open Data</strong> — Brent, crude flows, Hormuz chokepoint stats, free API<br><a href="https://www.eia.gov/opendata" target="_blank">eia.gov/opendata</a></div></div>
+    <div class="ref-item"><div class="ref-num">[10]</div><div class="ref-content"><strong>GDELT 2.0 Project</strong> — 15-min global event + tone data<br><a href="https://www.gdeltproject.org" target="_blank">gdeltproject.org</a></div></div>
+    <div class="ref-item"><div class="ref-num">[11]</div><div class="ref-content"><strong>alex9smith/gdelt-doc-api</strong> (★225) · <strong>linwoodc3/gdeltPyR</strong> (★254) — GDELT Python clients<br><a href="https://github.com/alex9smith/gdelt-doc-api" target="_blank">github.com/alex9smith/gdelt-doc-api</a></div></div>
+    <div class="ref-item"><div class="ref-num">[12]</div><div class="ref-content"><strong>ACLED</strong> — conflict event data, academic-free<br><a href="https://acleddata.com" target="_blank">acleddata.com</a></div></div>
+    <div class="ref-item"><div class="ref-num">[13]</div><div class="ref-content"><strong>UKMTO</strong> — Gulf maritime incident reporting (real-world ground truth)<br><a href="https://www.ukmto.org" target="_blank">ukmto.org</a></div></div>
+    <div class="ref-item"><div class="ref-num">[14]</div><div class="ref-content"><strong>Prior art — Hormuz-specific:</strong> kelu124/OrmuzOsint · KaiErikNiermann/hormuz-crossing-tracker (verify internals before use)<br><a href="https://github.com/kelu124/OrmuzOsint" target="_blank">github.com/kelu124/OrmuzOsint</a></div></div>
+  </div>
+</section>
+
+<footer>
+  USE CASE 03 · HORMUZ DISRUPTION ENGINE · DEEP LEARNING (CNN + LSTM/VAE + TRANSFORMER + AIS) · EXECUTION PLAN
+</footer>
+
+<script>
+(function(){
+  const scenarios = {
+    calm: {
+      index: 22, status: ['● STABLE', '#22c55e'], arc: '#22c55e',
+      arms: { cnn: 18, lstm: 24, nlp: 20 },
+      ports: { fuj: [38,'normal'], jeb: [30,'normal'] },
+      vessels: [ ['ok',30,40],['ok',48,55],['ok',62,35],['ok',55,70],['ok',72,60],['ok',40,68],['ok',80,48] ],
+      alerts: [
+        ['blue','06:12','Routine transit — <b>MT Al Marzoqah</b> cleared risk zone'],
+        ['blue','05:47','Index steady in <b>stable</b> band for 36h']
+      ],
+      brief: 'Risk index at <b>22 (stable)</b>. All three arms are quiet: satellite congestion normal across UAE ports, market series within expected range, no elevated geopolitical tone from Gulf events. Vessel traffic nominal, no dark or loitering contacts. Recommended posture: <b>routine monitoring</b>.'
+    },
+    elevated: {
+      index: 54, status: ['● ELEVATED', '#f59e0b'], arc: '#f59e0b',
+      arms: { cnn: 48, lstm: 61, nlp: 52 },
+      ports: { fuj: [72,'high'], jeb: [40,'normal'] },
+      vessels: [ ['ok',30,40],['warn',48,55],['ok',62,35],['warn',55,70],['ok',72,60],['dark',44,50],['ok',80,48] ],
+      alerts: [
+        ['amber','07:20','<b>Fujairah anchorage</b> filling — congestion index rising'],
+        ['red','07:04','Transponder-dark event inside strait — <b>1 vessel</b>'],
+        ['amber','06:38','Market arm anomaly: tanker rates +8% intraday']
+      ],
+      brief: 'Risk index at <b>54 (elevated)</b>, driven primarily by the <b>market arm</b>: tanker spot rates and Brent volatility are rising ahead of any physical congestion. Satellite congestion remains moderate, but Fujairah anchorage is filling — an early sign of precautionary rerouting. Recommended posture: <b>monitor closely; pre-stage contingency routing</b>.'
+    },
+    crisis: {
+      index: 87, status: ['● CRITICAL', '#ef4444'], arc: '#ef4444',
+      arms: { cnn: 79, lstm: 91, nlp: 88 },
+      ports: { fuj: [94,'critical'], jeb: [68,'high'] },
+      vessels: [ ['warn',30,40],['dark',48,55],['warn',62,35],['dark',55,70],['warn',72,60],['dark',44,50],['warn',80,48],['dark',36,62] ],
+      alerts: [
+        ['red','09:15','<b>Index crossed CRITICAL</b> (87) — escalation confirmed'],
+        ['red','09:02','Multiple <b>transponder-dark</b> vessels in strait (3)'],
+        ['red','08:44','GDELT: sharp spike in Gulf conflict-event tone'],
+        ['amber','08:30','<b>Fujairah</b> at capacity — rerouted traffic surge']
+      ],
+      brief: 'Risk index at <b>87 (critical)</b> — all three arms aligned. Geopolitical tone has spiked in GDELT/ACLED, markets are pricing disruption sharply, and satellite shows heavy congestion with Fujairah at capacity from rerouted traffic. Multiple vessels have gone transponder-dark inside the strait. Recommended posture: <b>activate contingency routing; coordinate with UKMTO; brief energy authority</b>.'
+    }
+  };
+
+  const arcTotal = 245;
+  function setArc(v){
+    const off = arcTotal - (arcTotal * v/100);
+    const arc = document.getElementById('gaugeArc');
+    arc.style.strokeDashoffset = off;
+    arc.style.stroke = scenarios[cur].arc;
+  }
+
+  const map = document.getElementById('demoMap');
+  function renderVessels(list){
+    map.querySelectorAll('.vessel').forEach(v=>v.remove());
+    const labels = { ok:'AIS ON · normal', warn:'loitering · watch', dark:'TRANSPONDER DARK' };
+    list.forEach(([type,x,y])=>{
+      const el = document.createElement('div');
+      el.className = 'vessel ' + type;
+      el.style.left = x + '%'; el.style.top = y + '%';
+      el.innerHTML = '<div class="vessel-tip">'+labels[type]+'</div>';
+      map.appendChild(el);
+    });
+    document.getElementById('vesselCount').textContent = list.length + ' vessels';
+  }
+
+  function renderAlerts(list){
+    document.getElementById('alertList').innerHTML = list.map(([c,t,txt])=>
+      '<div class="alert-row"><span class="alert-dot '+c+'"></span><div><span class="alert-time">'+t+'</span> <span class="alert-text">'+txt+'</span></div></div>'
+    ).join('');
+  }
+
+  let cur = 'calm';
+  function apply(s){
+    cur = s;
+    const d = scenarios[s];
+    document.getElementById('gaugeVal').textContent = d.index;
+    document.getElementById('gaugeVal').style.color = d.arc;
+    const st = document.getElementById('gaugeStatus');
+    st.textContent = d.status[0]; st.style.color = d.status[1];
+    setArc(d.index);
+    ['cnn','lstm','nlp'].forEach(a=>{
+      document.getElementById('v-'+a).textContent = d.arms[a];
+      document.getElementById('f-'+a).style.width = d.arms[a] + '%';
+    });
+    document.getElementById('p-fuj').textContent = d.ports.fuj[1];
+    document.getElementById('pf-fuj').style.width = d.ports.fuj[0] + '%';
+    document.getElementById('p-jeb').textContent = d.ports.jeb[1];
+    document.getElementById('pf-jeb').style.width = d.ports.jeb[0] + '%';
+    renderVessels(d.vessels);
+    renderAlerts(d.alerts);
+    document.getElementById('briefText').innerHTML = d.brief;
+  }
+
+  document.querySelectorAll('.scenario-btn').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      document.querySelectorAll('.scenario-btn').forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+      apply(btn.dataset.s);
+    });
+  });
+
+  apply('elevated');
+  document.querySelectorAll('.scenario-btn').forEach(b=>b.classList.toggle('active', b.dataset.s==='elevated'));
+})();
+</script>
+</body>
+</html>

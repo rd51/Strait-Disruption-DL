@@ -1,0 +1,6 @@
+# BigQuery historical backfill — one-shot, run on the host, NOT in the poller
+# image. Kept separate so the 24/7 container does not carry the GCP SDK.
+-r requirements.txt
+google-cloud-bigquery>=3.20
+google-cloud-bigquery-storage>=2.24
+db-dtypes>=1.2

@@ -1,0 +1,5 @@
+# Live collectors — kept deliberately lean; these run 24/7 in containers.
+pandas>=2.0,<3.0
+requests>=2.31
+pyarrow>=14.0
+websockets>=12.0

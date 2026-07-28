@@ -1,0 +1,156 @@
+# Hormuz Disruption Engine — backend services.
+#
+#   docker compose up -d gdelt-poller     # the 24/7 GDELT collector
+#   docker compose up -d api              # the FastAPI backend
+#   docker compose logs -f gdelt-poller
+#   docker compose down                   # SIGTERM; services exit cleanly
+#
+# The BigQuery backfill is deliberately NOT a service — it is a one-shot,
+# billable, human-supervised job. See backend/ingest/gdelt/backfill.py.
+# The raw-file backfill (Route A) is likewise run by hand: it is a long job,
+# not something that should restart automatically.
+
+services:
+  gdelt-poller:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    image: hormuz/backend:latest
+    container_name: hormuz-gdelt-poller
+    restart: unless-stopped
+
+    environment:
+      # Arabic/Farsi coverage is not optional for the Gulf — keep translingual on.
+      GDELT_TRANSLINGUAL: "true"
+      # GDELT publishes a few minutes after the nominal :00/:15/:30/:45 slot.
+      GDELT_POLL_LAG_SECONDS: "240"
+      # Cap on slots reconstructed after downtime (16 = 4 hours).
+      GDELT_MAX_CATCHUP: "16"
+      GDELT_HTTP_TIMEOUT: "120"
+      GDELT_MAX_RETRIES: "4"
+      HORMUZ_DATA_ROOT: /data/raw/gdelt
+      HEALTH_HEARTBEAT: /data/raw/gdelt/_state/heartbeat
+      HEALTH_MAX_AGE: "2100"          # ~2 slot intervals
+      LOG_LEVEL: "${LOG_LEVEL:-INFO}"
+
+    volumes:
+      # Raw store persists on the host — the container is disposable, the data is not.
+      - ./data:/data
+
+    # SIGTERM-to-SIGKILL grace. The loop checks its stop flag once a second, so
+    # 30s is ample for an in-flight slot to finish writing.
+    stop_grace_period: 30s
+
+    # Without this a 24/7 collector's logs grow until the disk fills.
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+  # ── API ─────────────────────────────────────────────────────────────────
+  api:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    image: hormuz/backend:latest
+    container_name: hormuz-api
+    entrypoint: ["python", "-m", "uvicorn", "backend.api.main:app",
+                 "--host", "0.0.0.0", "--port", "8000"]
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+
+    environment:
+      HORMUZ_DATA_DIR: /data
+      LOG_LEVEL: "${LOG_LEVEL:-INFO}"
+
+    volumes:
+      # Read-only: the API serves the store, it must never write to it.
+      - ./data:/data:ro
+
+    healthcheck:
+      test: ["CMD", "python", "-c",
+             "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=5).status==200 else 1)"]
+      interval: 30s
+      timeout: 10s
+      start_period: 20s
+      retries: 3
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+  # ── vessel-safety layer ─────────────────────────────────────────────────
+  # ⚠️ NOT part of the backtested engine, and currently NOT RUNNABLE for the
+  # Gulf: aisstream has zero coverage there (measured 2026-07-27). Left defined
+  # so the intent is visible, but do not start it expecting Gulf vessels.
+  ais-collector:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    image: hormuz/backend:latest
+    container_name: hormuz-ais-collector
+    entrypoint: ["python", "-m", "backend.ingest.ais.client"]
+    restart: unless-stopped
+    profiles: ["vessel"]          # only starts with --profile vessel
+
+    environment:
+      AISSTREAM_KEY: "${AISSTREAM_KEY:?set AISSTREAM_KEY in .env before starting this service}"
+      AIS_DATA_ROOT: /data/raw/ais
+      AIS_FLUSH_SECONDS: "300"
+      AIS_STALL_SECONDS: "120"
+      HEALTH_HEARTBEAT: /data/raw/ais/_state/heartbeat
+      HEALTH_MAX_AGE: "600"
+      LOG_LEVEL: "${LOG_LEVEL:-INFO}"
+
+    volumes:
+      - ./data:/data
+
+    stop_grace_period: 30s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+  # ── streaming (OPTIONAL, profile-gated) ─────────────────────────────────
+  # ⚠️ NOT REQUIRED BY THIS PROJECT. Measured ingest is 1.0 row/second against
+  # a single broker's ~1,000,000 msg/s design point — 0.0001% utilisation.
+  # Built as a SCALE DEMONSTRATION and to enable replay/fan-out, never because
+  # the volume needs it. Starts only with --profile streaming so nobody runs a
+  # broker by accident.
+  #
+  #   docker compose --profile streaming up -d kafka
+  #   python -m backend.streaming.pipeline --limit 5000
+  kafka:
+    image: apache/kafka:3.9.0
+    container_name: hormuz-kafka
+    profiles: ["streaming"]
+    ports:
+      - "9092:9092"
+    environment:
+      # KRaft mode — no ZooKeeper. Single-node, so this broker is also the
+      # controller; that is fine for a demonstration and wrong for production.
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@localhost:9093
+      KAFKA_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    logging:
+      driver: json-file
+      options: {max-size: "10m", max-file: "3"}
