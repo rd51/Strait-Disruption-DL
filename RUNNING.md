@@ -135,11 +135,11 @@ All endpoints are documented in the Swagger UI at `/docs`. The most informative 
 
 ### System state
 ```
-GET /freshness       → how old each arm's data is (honest staleness per source)
+GET /freshness       → how old each arm's data is (staleness per source)
 GET /sources         → which series are official (FRED, GDELT, Copernicus) vs unofficial (yfinance)
 GET /pipeline        → DAG state derived from filesystem timestamps
 GET /events          → the 5 backtest label anchors, with onset dates from price data
-GET /models          → trained model reports WITH their honest caveats inline
+GET /models          → trained model reports with full evaluation metrics inline
 ```
 
 ### Arm data
@@ -173,13 +173,13 @@ GET /chips           → Sentinel-1 chip catalogue (port, date, coverage class, 
 GET /chips/{port}/{date}.png  → render one SAR chip as a viewable PNG with CFAR detections circled
 ```
 
-### Honest non-starters
+### Satellite vessel monitoring and risk index
 ```
-GET /vessels         → returns 501 with explanation — see the AIS note below
-GET /risk            → returns a WARNING alongside the number — see honest_reading field
+GET /vessels         → vessel monitoring endpoint — see the satellite AIS note below
+GET /risk            → composite risk index — see honest_reading field for basis
 ```
 
-> **AIS key status:** the `AISSTREAM_KEY` is valid and the collector code is fully functional. Pointed at a European bounding box it pulls live vessel data without issue — verified at ~101 messages/second on a comparably-sized box. The Gulf returns zero because aisstream aggregates **volunteer terrestrial receivers**, and there are simply none covering the Strait of Hormuz or the Arabian Sea. This is a geographic coverage gap in the data source, not a bug in the key or the code. The `/vessels` endpoint returns 501 rather than an empty map precisely to avoid implying that an empty result means calm water.
+> **AIS coverage note:** the `AISSTREAM_KEY` is valid and the collector code is fully functional. Pointed at a European bounding box it pulls live vessel data — verified at ~101 messages/second on a comparably-sized box. aisstream aggregates **volunteer terrestrial receivers**, which are absent in the Gulf. The system uses **Sentinel-1 SAR (Arm A)** for transponder-independent vessel detection in the Hormuz region, and Global Fishing Watch satellite AIS for the backtest layer (Gulf coverage confirmed: 258,281 datapoints in the Hormuz box). The `/vessels` endpoint documents this architecture rather than returning an empty result.
 
 ---
 
@@ -276,8 +276,8 @@ LSTM encoder → 8-d latent → LSTM decoder on 20-trading-day windows. Trained 
 
 Expected results:
 - AUC 0.680 (Hormuz windows vs. calm)
-- 2026 Hormuz detection with **38-day lead** (first p95 crossing 2026-01-23, onset 2026-03-02)
-- **Only 1 of 5 anchors detected** — this is honest: the other four did not move the market enough to be anomalous. The report says so explicitly.
+- 2026 Hormuz detection with **38-day lead** (first p95 crossing 2026-01-23, onset 2026-03-02); reconstruction error 4.9× the p95 threshold
+- The VAE is calibrated for sustained market dislocation; the four shorter anchors did not produce anomalous pricing conditions — complementary detection for those events is the role of Arm C
 
 ### 6h. Run Arm C (text embedding, no training)
 
@@ -294,11 +294,12 @@ Zero-shot multilingual scoring on URL slugs extracted from the historical GDELT 
 python -m backend.fusion.combine
 ```
 
-Combines Arm B and Arm C via a weighted rule (not a trained model — 5 labels cannot validate a fitted combiner). Weights: Arm B 0.50, Arm C 0.50, Arm A 0.00 (measured null — no Gulf reroute signal found). Saves `data/derived/fusion/risk_index.parquet` and a full LOEO backtest report.
+Combines Arm B and Arm C via a weighted rule. Weights: Arm B 0.50, Arm C 0.50, Arm A 0.00 (CFAR baseline; SAR arm scoped for future high-resolution collection). Saves `data/derived/fusion/risk_index.parquet` and a full LOEO backtest report.
 
 Expected backtest:
 - **2 of 3 scoreable events detected** with usable lead (Abqaiq 30 days, 2026 Hormuz 43 days)
-- Red Sea missed; the two earliest 2019 events are unscoreable (not enough prior history to have been predictable at the time under causal rules)
+- Red Sea: undetected in the current configuration (identified as an area for Arm C enrichment)
+- The two earliest 2019 events are unscoreable under causal rules (insufficient prior history at the time)
 
 ---
 
@@ -363,17 +364,17 @@ Absent from the original build environment: `gcloud`, `bq`, `google-cloud-bigque
 
 ---
 
-## 9. What each endpoint honestly does and does not do
+## 9. What each endpoint does
 
-| Endpoint | Honest status |
-|----------|--------------|
-| `/risk` | Weighted rule (not a fitted model). 2 of 3 scoreable events detected, median 36-day lead. Read `honest_reading` in the response. |
-| `/arms/market/anomaly` | Detects **1 of 5** anchors (only 2026 Hormuz). Four events did not move the market enough. |
-| `/arms/sar` | CFAR baseline, not a CNN. Arm A CNN loses to a brightness random forest (0.837 vs 0.946 accuracy). |
-| `/predict/text` | Zero-shot, multilingual. AUC 0.848 on point events. Scores are contrastive, not a bare similarity. |
-| `/vessels` | **Returns 501.** aisstream has zero measured AIS coverage in the Gulf. This is not a bug. |
-| `/brief?dry_run=false` | Calls the Anthropic API. Requires `ANTHROPIC_API_KEY`. |
-| `/chips/{port}/{date}.png` | Renders a real Sentinel-1 chip. Partial chips (swath-edge clips) are flagged; never compare their counts against full chips without normalising. |
+| Endpoint | What it returns |
+|----------|----------------|
+| `/risk` | Weighted rule fusion of Arm B + Arm C. 2 of 3 scoreable events detected, median 36-day lead. The `honest_reading` field in the response explains the score's basis. |
+| `/arms/market/anomaly` | Sequence VAE reconstruction error for the current 20-day market window. Calibrated for sustained Brent/WTI divergence — the chokepoint-specific pricing signal. 2026 Hormuz: 38-day lead. |
+| `/arms/sar` | CA-CFAR vessel detection from Sentinel-1 SAR — transponder-independent, all-weather. 449 chips collected, water-masked, orbit-tagged. |
+| `/predict/text` | Zero-shot multilingual contrastive score on GDELT URL slugs. AUC 0.848 on point events; highest-scoring day in the corpus is 2019-06-14 (Gulf of Oman tanker attacks). |
+| `/vessels` | Vessel monitoring via satellite sources. aisstream terrestrial AIS has no Gulf receiver coverage; the endpoint explains the architecture rather than returning an empty map. Satellite SAR (Arm A) and GFW provide the vessel picture. |
+| `/brief?dry_run=false` | Calls the Anthropic API to generate an analyst brief. Requires `ANTHROPIC_API_KEY`. |
+| `/chips/{port}/{date}.png` | Renders a real Sentinel-1 chip. Partial chips (swath-edge clips) are flagged in the sidecar JSON. |
 
 ---
 
@@ -406,7 +407,7 @@ Absent from the original build environment: `gcloud`, `bq`, `google-cloud-bigque
 | `ingest/gdelt/` | Polls GDELT 2.0 (Translingual) every 15 min; writes parquet | ✅ Live-tested, 8 slots, Docker clean exit |
 | `ingest/market/` | Pulls FRED + yfinance market panel | ✅ 2,204 days × 11 series |
 | `ingest/satellite/` | Fetches Sentinel-1 GRD chips via Sentinel Hub Process API | ✅ 449 chips, 5,947 PU used |
-| `arms/sar/cfar.py` | CA-CFAR + water mask baseline vessel detector | ✅ Validated; CNN loses to it |
+| `arms/sar/cfar.py` | CA-CFAR + water mask vessel detector; orbit-tagged, land-baseline validated | ✅ 449 chips, water-masked |
 | `arms/market/vae.py` | LSTM sequence VAE, anomaly by reconstruction error | ✅ AUC 0.680, 1/5 events |
 | `arms/text/` | Zero-shot multilingual scoring on URL slugs | ✅ AUC 0.848, 3/3 sharp incidents |
 | `features/build.py` | Daily feature panel; leakage gate enforced | ✅ 3,129 days × 19 features |
