@@ -123,8 +123,8 @@ Zero-shot contrastive multilingual scoring via `paraphrase-multilingual-MiniLM-L
 ├── README.md
 ├── RUNNING.md                       # setup and run guide
 ├── ARCHITECTURE.md
-├── hormuz_execution_plan.html       # full spec, results, and live demo widget
-├── hormuz_architecture_diagram.svg  # system architecture diagram
+├── initial_execution_plan.html      # full spec, results, and live demo widget
+├── hormuz_architecture_diagram.png  # system architecture diagram (1440×860)
 ├── .env.example                     # copy to .env; fill in API keys
 ├── docker-compose.yml               # GDELT poller service
 ├── backend/
