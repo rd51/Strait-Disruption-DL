@@ -99,12 +99,12 @@
   <text x="44" y="566" fill="#ef4444" font-size="8" class="label">✗ NOT ACHIEVABLE via aisstream for Gulf</text>
 
   <!-- GFW note [orange] -->
-  <rect x="30" y="583" width="265" height="75" rx="8" fill="rgba(245,158,11,0.05)" stroke="rgba(245,158,11,0.4)" stroke-width="1" stroke-dasharray="4,3"/>
+  <rect x="30" y="583" width="265" height="90" rx="8" fill="rgba(245,158,11,0.05)" stroke="rgba(245,158,11,0.4)" stroke-width="1" stroke-dasharray="4,3"/>
   <text x="44" y="601" fill="#f59e0b" font-size="9" class="label" letter-spacing="0.5">GLOBAL FISHING WATCH (GFW)</text>
   <text x="44" y="616" fill="#e8eaf0" font-size="10" font-family="Arial, sans-serif">Satellite AIS · Gulf confirmed</text>
   <text x="44" y="631" fill="#7a8090" font-size="9" class="label">258,281 pts in Hormuz box · 4-day lag</text>
   <text x="44" y="647" fill="#7a8090" font-size="9" class="label">Backtest / ground-truth only · not live</text>
-  <text x="44" y="652" fill="#f59e0b" font-size="8" class="label">⚠ USE: backtest only</text>
+  <text x="44" y="662" fill="#f59e0b" font-size="8" class="label">⚠ USE: backtest layer only — 4-day lag</text>
 
   <!-- ─────────────────────────────────────────────────────────────
        COLUMN 2 — THREE ARMS
